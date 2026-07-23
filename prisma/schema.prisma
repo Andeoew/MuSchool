@@ -222,17 +222,22 @@ model ParentStudent {
 }
 
 model Lesson {
-  id        String       @id @default(cuid())
-  studentId String
-  teacherId String
-  subject   String
-  level     String?
-  startTime DateTime
-  endTime   DateTime
-  status    LessonStatus @default(SCHEDULED)
-  notes     String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id         String       @id @default(cuid())
+  studentId  String
+  teacherId  String
+  subject    String
+  level      String?
+  /// Individual | Group | Trial | Makeup — used for display/color; extensible later
+  lessonType String?      @default("Individual")
+  room       String?
+  startTime  DateTime
+  endTime    DateTime
+  status     LessonStatus @default(SCHEDULED)
+  notes      String?
+  /// Reserved for future recurring-lesson series (null = one-off)
+  seriesId   String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
@@ -248,6 +253,7 @@ model Lesson {
   @@index([academyId])
   @@index([academyId, startTime])
   @@index([academyId, status])
+  @@index([academyId, seriesId])
 }
 
 model Attendance {

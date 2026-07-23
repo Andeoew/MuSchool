@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, UserPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Search, UserPlus, MoreHorizontal, Pencil, Trash2, KeyRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { deleteStudent } from './actions'
+import { deleteStudent, resetStudentPassword } from './actions'
 import { StudentFormModal } from './student-form-modal'
+import { CredentialsDialog, type IssuedCredential } from '@/components/credentials-dialog'
 
 export type StudentRow = {
   id: string
@@ -34,6 +35,7 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
   const [modalState, setModalState] = useState<{ mode: 'create' } | { mode: 'edit'; student: StudentRow } | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [credentials, setCredentials] = useState<IssuedCredential | null>(null)
 
   const filtered = students.filter((s) => {
     const q = search.toLowerCase()
@@ -57,6 +59,24 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
         alert(result.error)
         return
       }
+      router.refresh()
+    })
+  }
+
+  function handleResetPassword(student: StudentRow) {
+    setOpenMenuId(null)
+    if (!confirm(`Reset password for ${student.firstName} ${student.lastName}?`)) return
+    startTransition(async () => {
+      const result = await resetStudentPassword(student.id)
+      if (!result.success) {
+        alert(result.error)
+        return
+      }
+      setCredentials({
+        label: 'Student login',
+        username: result.data.username,
+        temporaryPassword: result.data.temporaryPassword,
+      })
       router.refresh()
     })
   }
@@ -189,6 +209,12 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
                             <Pencil className="w-3.5 h-3.5" /> Edit
                           </button>
                           <button
+                            onClick={() => handleResetPassword(student)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-accent transition-colors"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" /> Reset Password
+                          </button>
+                          <button
                             onClick={() => handleDelete(student.id)}
                             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-rose-500 hover:bg-rose-500/10 transition-colors"
                           >
@@ -235,6 +261,14 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
             setModalState(null)
             router.refresh()
           }}
+        />
+      )}
+
+      {credentials && (
+        <CredentialsDialog
+          title="Password reset"
+          credentials={credentials}
+          onDone={() => setCredentials(null)}
         />
       )}
     </div>

@@ -40,7 +40,7 @@ export function CredentialsDialog({
           <div>
             <h3 className="text-lg font-bold text-foreground">{title}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              This password will only be shown once. Copy it now and share it securely.
+              This password will never be shown again. Copy it now and share it securely.
             </p>
           </div>
           <button
@@ -74,7 +74,7 @@ export function CredentialsDialog({
         ))}
 
         <p className="text-[12px] text-amber-600 dark:text-amber-400">
-          Passwords are stored hashed and cannot be viewed again. Use Reset Password if needed.
+          This password will never be shown again. Passwords are stored hashed. Use Reset Password if needed.
         </p>
 
         <button
