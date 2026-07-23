@@ -37,6 +37,7 @@ export const tr = {
     students: 'Öğrenciler',
     teachers: 'Öğretmenler',
     parents: 'Veliler',
+    courses: 'Kurslar',
     calendar: 'Takvim',
     lessons: 'Dersler',
     attendance: 'Devam',
@@ -145,6 +146,11 @@ export const tr = {
       title: 'Veliler',
       subtitle: 'Veli iletişimlerini yönetin',
       addNew: 'Yeni Veli',
+    },
+    courses: {
+      title: 'Kurslar',
+      subtitle: 'Akademi kurslarını yönetin',
+      addNew: 'Yeni Kurs',
     },
     lessons: {
       title: 'Dersler',

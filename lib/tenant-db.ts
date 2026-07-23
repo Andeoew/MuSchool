@@ -16,13 +16,23 @@ import { prisma } from './db'
  * those models should go through a `findFirst({ where: { id, academyId }})`
  * existence check first until they get the same compound key.
  */
-const MODELS_WITH_ID_COMPOUND = new Set(['Student', 'Teacher', 'Parent', 'Lesson', 'ParentStudent'])
+const MODELS_WITH_ID_COMPOUND = new Set([
+  'Student',
+  'Teacher',
+  'Parent',
+  'Lesson',
+  'ParentStudent',
+  'Course',
+  'Enrollment',
+])
 
 const TENANT_MODELS = new Set([
   'Student',
   'Teacher',
   'Parent',
   'ParentStudent',
+  'Course',
+  'Enrollment',
   'Lesson',
   'Attendance',
   'Homework',

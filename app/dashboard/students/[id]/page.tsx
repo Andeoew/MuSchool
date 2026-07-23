@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
 import { StudentDetailActions } from './student-detail-actions'
+import { StudentEnrollmentSection } from './student-enrollment-section'
 import { formatTime } from '@/lib/calendar'
 import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
@@ -30,6 +31,13 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           },
         },
       },
+      enrollments: {
+        orderBy: { startDate: 'desc' },
+        include: {
+          course: { select: { id: true, name: true, instrument: true, color: true } },
+          teacher: { select: { id: true, firstName: true, lastName: true } },
+        },
+      },
       payments: {
         orderBy: { createdAt: 'desc' },
         take: 10,
@@ -39,26 +47,49 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound()
 
+  const enrollmentIds = student.enrollments.map((e) => e.id)
+
   const [upcomingLessons, recentLessons] = await Promise.all([
-    db.lesson.findMany({
-      where: {
-        studentId: id,
-        startTime: { gte: now },
-        status: { in: ['PLANNED', 'POSTPONED'] },
-      },
-      orderBy: { startTime: 'asc' },
-      take: 5,
-      include: { teacher: { select: { firstName: true, lastName: true } } },
-    }),
-    db.lesson.findMany({
-      where: {
-        studentId: id,
-        OR: [{ startTime: { lt: now } }, { status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } }],
-      },
-      orderBy: { startTime: 'desc' },
-      take: 5,
-      include: { teacher: { select: { firstName: true, lastName: true } } },
-    }),
+    enrollmentIds.length === 0
+      ? Promise.resolve([])
+      : db.lesson.findMany({
+          where: {
+            enrollmentId: { in: enrollmentIds },
+            startTime: { gte: now },
+            status: { in: ['PLANNED', 'POSTPONED'] },
+          },
+          orderBy: { startTime: 'asc' },
+          take: 5,
+          include: {
+            enrollment: {
+              include: {
+                teacher: { select: { firstName: true, lastName: true } },
+                course: { select: { name: true, color: true } },
+              },
+            },
+          },
+        }),
+    enrollmentIds.length === 0
+      ? Promise.resolve([])
+      : db.lesson.findMany({
+          where: {
+            enrollmentId: { in: enrollmentIds },
+            OR: [
+              { startTime: { lt: now } },
+              { status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } },
+            ],
+          },
+          orderBy: { startTime: 'desc' },
+          take: 5,
+          include: {
+            enrollment: {
+              include: {
+                teacher: { select: { firstName: true, lastName: true } },
+                course: { select: { name: true, color: true } },
+              },
+            },
+          },
+        }),
   ])
 
   return (
@@ -99,6 +130,18 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
+      <StudentEnrollmentSection
+        studentId={student.id}
+        studentName={`${student.firstName} ${student.lastName}`}
+        enrollments={student.enrollments.map((e) => ({
+          id: e.id,
+          status: e.status,
+          startDate: e.startDate.toISOString(),
+          course: e.course,
+          teacher: e.teacher,
+        }))}
+      />
+
       <LessonListSection
         title="Upcoming Lessons"
         empty="No upcoming lessons."
@@ -107,8 +150,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       />
 
       <LessonListSection
-        title="Recent Lessons"
-        empty="No recent lessons."
+        title="Lesson History"
+        empty="No lesson history yet."
         lessons={recentLessons}
         viewAllHref={`/dashboard/lessons?studentId=${id}`}
       />
@@ -144,11 +187,13 @@ function LessonListSection({
   empty: string
   lessons: Array<{
     id: string
-    instrument: string
     startTime: Date
     endTime: Date
     status: string
-    teacher: { firstName: string; lastName: string }
+    enrollment: {
+      teacher: { firstName: string; lastName: string }
+      course: { name: string; color: string }
+    }
   }>
   viewAllHref: string
 }) {
@@ -156,10 +201,7 @@ function LessonListSection({
     <div className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <Link
-          href={viewAllHref}
-          className="text-xs text-gold hover:underline underline-offset-4 transition-colors shrink-0"
-        >
+        <Link href={viewAllHref} className="text-xs text-gold hover:underline underline-offset-4">
           View All Lessons
         </Link>
       </div>
@@ -168,16 +210,22 @@ function LessonListSection({
       ) : (
         <ul className="flex flex-col gap-2">
           {lessons.map((l) => (
-            <li key={l.id} className="text-sm text-foreground flex justify-between gap-3">
-              <Link href={`/dashboard/lessons/${l.id}`} className="hover:text-gold transition-colors min-w-0">
-                <span className="font-medium">{l.instrument}</span>
+            <li key={l.id} className="text-sm flex justify-between gap-3">
+              <Link href={`/dashboard/lessons/${l.id}`} className="hover:text-gold min-w-0">
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: l.enrollment.course.color }}
+                  />
+                  {l.enrollment.course.name}
+                </span>
                 <span className="text-muted-foreground">
                   {' '}
-                  with {l.teacher.firstName} {l.teacher.lastName}
+                  with {l.enrollment.teacher.firstName} {l.enrollment.teacher.lastName}
                 </span>
                 <span className="block text-[11px] text-muted-foreground">
-                  {LESSON_STATUS_LABELS[l.status as LessonStatusValue] ?? l.status} ·{' '}
-                  {formatTime(l.startTime)}–{formatTime(l.endTime)}
+                  {LESSON_STATUS_LABELS[l.status as LessonStatusValue]} · {formatTime(l.startTime)}–
+                  {formatTime(l.endTime)}
                 </span>
               </Link>
               <span className="text-muted-foreground shrink-0">{l.startTime.toLocaleDateString()}</span>

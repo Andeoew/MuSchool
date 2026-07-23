@@ -22,9 +22,35 @@ export function endOfWeek(date: Date): Date {
   return end
 }
 
+export function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+export function endOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1)
+}
+
+export function startOfDay(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+export function endOfDay(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
 export function addDays(date: Date, days: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + days)
+  return d
+}
+
+export function addMonths(date: Date, months: number): Date {
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + months)
   return d
 }
 
@@ -57,6 +83,19 @@ export function formatWeekLabel(weekStart: Date): string {
   return `${startFmt} – ${endFmt}`
 }
 
+export function formatMonthLabel(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+export function formatDayLabel(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 export function formatTime(date: Date): string {
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -65,20 +104,34 @@ export function formatTime(date: Date): string {
   })
 }
 
-/** Hour slots for the week grid (08:00–21:00). */
+/** Hour slots for the week/day grid (08:00–21:00). */
 export const CALENDAR_HOURS = Array.from({ length: 14 }, (_, i) => i + 8)
 
-export function lessonColorClass(lessonType: string | null | undefined): string {
-  switch (lessonType) {
-    case 'GROUP':
-    case 'Group':
-      return 'bg-blue-500/15 text-blue-600 border-blue-500/25'
-    case 'TRIAL':
-    case 'Trial':
-      return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25'
-    case 'PRIVATE':
-    case 'Individual':
-    default:
-      return 'bg-gold-dim text-gold border-gold/30'
+export const HOUR_HEIGHT = 64
+
+/** Calendar month grid: weeks starting Monday covering the month. */
+export function getMonthGrid(monthDate: Date): Date[][] {
+  const first = startOfMonth(monthDate)
+  const gridStart = startOfWeek(first)
+  const weeks: Date[][] = []
+  let cursor = gridStart
+  for (let w = 0; w < 6; w++) {
+    const week: Date[] = []
+    for (let d = 0; d < 7; d++) {
+      week.push(addDays(cursor, d))
+    }
+    weeks.push(week)
+    cursor = addDays(cursor, 7)
+    if (cursor.getMonth() !== monthDate.getMonth() && w >= 3) break
   }
+  return weeks
+}
+
+export function withAlpha(hex: string, alpha: number): string {
+  const cleaned = hex.replace('#', '')
+  if (cleaned.length !== 6) return hex
+  const r = parseInt(cleaned.slice(0, 2), 16)
+  const g = parseInt(cleaned.slice(2, 4), 16)
+  const b = parseInt(cleaned.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }

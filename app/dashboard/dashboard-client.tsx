@@ -20,6 +20,7 @@ type Props = {
   recentLessons: RecentLessonItem[]
   completedToday: number
   cancelledToday: number
+  todayCalendarHref: string
 }
 
 export function DashboardClient({
@@ -28,6 +29,7 @@ export function DashboardClient({
   recentLessons,
   completedToday,
   cancelledToday,
+  todayCalendarHref,
 }: Props) {
   const { t } = useLocale()
   const d = t.dashboard
@@ -73,6 +75,7 @@ export function DashboardClient({
           subtitle={d.todaysScheduleSubtitle}
           viewCalendarLabel={d.viewCalendar}
           lessons={todaysLessons}
+          calendarHref={todayCalendarHref}
         />
         <QuickActions
           title={d.quickActions}

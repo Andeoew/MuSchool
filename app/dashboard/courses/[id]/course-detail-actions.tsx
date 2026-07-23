@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
-import { LessonFormModal, type LessonFormValues } from '../lesson-form-modal'
+import { CourseFormModal, type CourseFormValues } from '../course-form-modal'
 
-export function LessonDetailActions({ lesson }: { lesson: LessonFormValues }) {
+export function CourseDetailActions({ course }: { course: CourseFormValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
@@ -20,9 +20,9 @@ export function LessonDetailActions({ lesson }: { lesson: LessonFormValues }) {
         Edit
       </button>
       {open && (
-        <LessonFormModal
+        <CourseFormModal
           mode="edit"
-          lesson={lesson}
+          course={course}
           onClose={() => setOpen(false)}
           onSuccess={() => {
             setOpen(false)

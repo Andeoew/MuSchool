@@ -2,7 +2,6 @@
 
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT'
 export type LessonStatus = 'PLANNED' | 'COMPLETED' | 'CANCELLED' | 'POSTPONED' | 'NO_SHOW'
-export type LessonType = 'PRIVATE' | 'GROUP' | 'TRIAL'
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
 export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'GRADED'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
@@ -52,17 +51,34 @@ export interface Parent {
 
 export interface Lesson {
   id: string
-  studentId: string
-  teacherId: string
-  instrument: string
-  level?: string | null
-  lessonType: LessonType
+  enrollmentId: string
   room?: string | null
-  lessonFee?: number | null
   durationMinutes?: number | null
   startTime: Date
   endTime: Date
   status: LessonStatus
+  notes?: string | null
+  teacherNotes?: string | null
+}
+
+export interface Course {
+  id: string
+  name: string
+  instrument: string
+  defaultDuration: number
+  defaultLessonFee?: number | null
+  description?: string | null
+  color: string
+  isActive: boolean
+}
+
+export interface Enrollment {
+  id: string
+  studentId: string
+  teacherId: string
+  courseId: string
+  startDate: Date
+  status: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
   notes?: string | null
 }
 

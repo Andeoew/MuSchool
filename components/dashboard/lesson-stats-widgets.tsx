@@ -6,6 +6,7 @@ import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/
 export type RecentLessonItem = {
   id: string
   instrument: string
+  courseName?: string
   status: string
   startTime: string
   studentName: string
@@ -73,7 +74,7 @@ export function LessonStatsWidgets({ completedToday, cancelledToday, recentLesso
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium text-foreground truncate">{l.studentName}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {l.instrument} · {l.teacherName}
+                        {l.courseName ?? l.instrument} · {l.teacherName}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

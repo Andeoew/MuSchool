@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   X, Music2,
   LayoutDashboard, Users, GraduationCap, UsersRound, CalendarDays,
-  BookOpenCheck, ClipboardList, FileText, CreditCard, BarChart3,
+  BookOpenCheck, Library, ClipboardList, FileText, CreditCard, BarChart3,
   Megaphone, Bell, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { key: 'students', href: '/dashboard/students', icon: Users },
   { key: 'teachers', href: '/dashboard/teachers', icon: GraduationCap },
   { key: 'parents', href: '/dashboard/parents', icon: UsersRound },
+  { key: 'courses', href: '/dashboard/courses', icon: Library },
   { key: 'calendar', href: '/dashboard/calendar', icon: CalendarDays },
   { key: 'lessons', href: '/dashboard/lessons', icon: BookOpenCheck },
   { key: 'attendance', href: '/dashboard/attendance', icon: ClipboardList },

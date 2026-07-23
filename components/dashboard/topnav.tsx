@@ -32,6 +32,7 @@ export function TopNav({ onMobileMenuToggle }: TopNavProps) {
     '/dashboard/students': 'students',
     '/dashboard/teachers': 'teachers',
     '/dashboard/parents': 'parents',
+    '/dashboard/courses': 'courses',
     '/dashboard/calendar': 'calendar',
     '/dashboard/lessons': 'lessons',
     '/dashboard/attendance': 'attendance',

@@ -7,49 +7,35 @@ import { requireAcademyId } from '@/lib/session'
 import {
   lessonInputSchema,
   lessonUpdateSchema,
+  lessonTimeUpdateSchema,
+  lessonCompleteSchema,
   computeDurationMinutes,
   type LessonStatusValue,
-  type LessonTypeValue,
 } from '@/lib/validations/lesson'
-
-export type ActionResult<T = undefined> =
-  | { success: true; data: T }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> }
+import {
+  ActionResult,
+  flattenFieldErrors,
+  isNotFoundError,
+  isUniqueConstraintError,
+} from '@/lib/action-result'
 
 export type LessonListFilters = {
   search?: string
   teacherId?: string
   studentId?: string
+  courseId?: string
   instrument?: string
   status?: LessonStatusValue | 'ALL'
-  lessonType?: LessonTypeValue | 'ALL'
   dateFrom?: string
   dateTo?: string
-  sort?: 'date' | 'teacher' | 'student'
+  sort?: 'date' | 'teacher' | 'student' | 'course'
   sortDir?: 'asc' | 'desc'
-}
-
-function isUniqueConstraintError(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
-}
-
-function isNotFoundError(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025'
-}
-
-function flattenFieldErrors(error: { issues: Array<{ path: PropertyKey[]; message: string }> }): Record<string, string[]> {
-  const out: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const key = issue.path.length ? issue.path.map(String).join('.') : '_form'
-    out[key] = out[key] ?? []
-    out[key]!.push(issue.message)
-  }
-  return out
 }
 
 function revalidateLessonPaths(id?: string) {
   revalidatePath('/dashboard/calendar')
   revalidatePath('/dashboard/lessons')
+  revalidatePath('/dashboard/courses')
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/students')
   revalidatePath('/dashboard/teachers')
@@ -57,11 +43,21 @@ function revalidateLessonPaths(id?: string) {
 }
 
 const lessonInclude = {
-  student: {
-    select: { id: true, firstName: true, lastName: true, instrument: true },
-  },
-  teacher: {
-    select: { id: true, firstName: true, lastName: true },
+  enrollment: {
+    include: {
+      student: { select: { id: true, firstName: true, lastName: true } },
+      teacher: { select: { id: true, firstName: true, lastName: true } },
+      course: {
+        select: {
+          id: true,
+          name: true,
+          instrument: true,
+          color: true,
+          defaultDuration: true,
+          defaultLessonFee: true,
+        },
+      },
+    },
   },
 } as const
 
@@ -82,12 +78,15 @@ export async function listLessons(filters: LessonListFilters = {}) {
   const db = forAcademy(academyId)
 
   const where: Prisma.LessonWhereInput = {}
+  const enrollmentWhere: Prisma.EnrollmentWhereInput = {}
 
-  if (filters.teacherId) where.teacherId = filters.teacherId
-  if (filters.studentId) where.studentId = filters.studentId
-  if (filters.instrument) where.instrument = filters.instrument
+  if (filters.teacherId) enrollmentWhere.teacherId = filters.teacherId
+  if (filters.studentId) enrollmentWhere.studentId = filters.studentId
+  if (filters.courseId) enrollmentWhere.courseId = filters.courseId
+  if (filters.instrument) enrollmentWhere.course = { instrument: filters.instrument }
+  if (Object.keys(enrollmentWhere).length) where.enrollment = enrollmentWhere
+
   if (filters.status && filters.status !== 'ALL') where.status = filters.status
-  if (filters.lessonType && filters.lessonType !== 'ALL') where.lessonType = filters.lessonType
 
   if (filters.dateFrom || filters.dateTo) {
     where.startTime = {}
@@ -104,13 +103,14 @@ export async function listLessons(filters: LessonListFilters = {}) {
   if (filters.search?.trim()) {
     const q = filters.search.trim()
     where.OR = [
-      { instrument: { contains: q, mode: 'insensitive' } },
       { room: { contains: q, mode: 'insensitive' } },
       { notes: { contains: q, mode: 'insensitive' } },
-      { student: { firstName: { contains: q, mode: 'insensitive' } } },
-      { student: { lastName: { contains: q, mode: 'insensitive' } } },
-      { teacher: { firstName: { contains: q, mode: 'insensitive' } } },
-      { teacher: { lastName: { contains: q, mode: 'insensitive' } } },
+      { enrollment: { student: { firstName: { contains: q, mode: 'insensitive' } } } },
+      { enrollment: { student: { lastName: { contains: q, mode: 'insensitive' } } } },
+      { enrollment: { teacher: { firstName: { contains: q, mode: 'insensitive' } } } },
+      { enrollment: { teacher: { lastName: { contains: q, mode: 'insensitive' } } } },
+      { enrollment: { course: { name: { contains: q, mode: 'insensitive' } } } },
+      { enrollment: { course: { instrument: { contains: q, mode: 'insensitive' } } } },
     ]
   }
 
@@ -118,10 +118,12 @@ export async function listLessons(filters: LessonListFilters = {}) {
   const dir = filters.sortDir ?? 'desc'
   const orderBy: Prisma.LessonOrderByWithRelationInput[] =
     sort === 'teacher'
-      ? [{ teacher: { lastName: dir } }, { startTime: 'desc' }]
+      ? [{ enrollment: { teacher: { lastName: dir } } }, { startTime: 'desc' }]
       : sort === 'student'
-        ? [{ student: { lastName: dir } }, { startTime: 'desc' }]
-        : [{ startTime: dir }]
+        ? [{ enrollment: { student: { lastName: dir } } }, { startTime: 'desc' }]
+        : sort === 'course'
+          ? [{ enrollment: { course: { name: dir } } }, { startTime: 'desc' }]
+          : [{ startTime: dir }]
 
   return db.lesson.findMany({
     where,
@@ -130,15 +132,55 @@ export async function listLessons(filters: LessonListFilters = {}) {
   })
 }
 
-export async function listLessonsInRange(start: Date, end: Date) {
+export async function listLessonsInRange(
+  start: Date,
+  end: Date,
+  filters: {
+    teacherId?: string
+    studentId?: string
+    courseId?: string
+    instrument?: string
+    status?: LessonStatusValue | 'ALL'
+    search?: string
+  } = {},
+) {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 
+  const where: Prisma.LessonWhereInput = {
+    startTime: { gte: start, lt: end },
+  }
+
+  if (filters.status && filters.status !== 'ALL') {
+    where.status = filters.status
+  } else {
+    where.status = { not: 'CANCELLED' }
+  }
+
+  const enrollmentWhere: Prisma.EnrollmentWhereInput = {}
+  if (filters.teacherId) enrollmentWhere.teacherId = filters.teacherId
+  if (filters.studentId) enrollmentWhere.studentId = filters.studentId
+  if (filters.courseId) enrollmentWhere.courseId = filters.courseId
+  if (filters.instrument) enrollmentWhere.course = { instrument: filters.instrument }
+  if (Object.keys(enrollmentWhere).length) where.enrollment = enrollmentWhere
+
+  if (filters.search?.trim()) {
+    const q = filters.search.trim()
+    where.AND = [
+      {
+        OR: [
+          { enrollment: { student: { firstName: { contains: q, mode: 'insensitive' } } } },
+          { enrollment: { student: { lastName: { contains: q, mode: 'insensitive' } } } },
+          { enrollment: { teacher: { firstName: { contains: q, mode: 'insensitive' } } } },
+          { enrollment: { teacher: { lastName: { contains: q, mode: 'insensitive' } } } },
+          { enrollment: { course: { name: { contains: q, mode: 'insensitive' } } } },
+        ],
+      },
+    ]
+  }
+
   return db.lesson.findMany({
-    where: {
-      startTime: { gte: start, lt: end },
-      status: { notIn: ['CANCELLED'] },
-    },
+    where,
     orderBy: { startTime: 'asc' },
     include: lessonInclude,
   })
@@ -172,25 +214,21 @@ export async function createLesson(input: unknown): Promise<ActionResult<{ id: s
   const db = forAcademy(academyId)
   const data = parsed.data
 
-  const [student, teacher] = await Promise.all([
-    db.student.findUnique({ where: { id: data.studentId }, select: { id: true } }),
-    db.teacher.findUnique({ where: { id: data.teacherId }, select: { id: true } }),
-  ])
-
-  if (!student) return { success: false, error: 'Student not found in your academy.' }
-  if (!teacher) return { success: false, error: 'Teacher not found in your academy.' }
+  const enrollment = await db.enrollment.findUnique({
+    where: { id: data.enrollmentId },
+    select: { id: true, status: true },
+  })
+  if (!enrollment) return { success: false, error: 'Enrollment not found in your academy.' }
+  if (enrollment.status !== 'ACTIVE') {
+    return { success: false, error: 'Cannot schedule lessons for an inactive enrollment.' }
+  }
 
   try {
     const lesson = await db.lesson.create({
       data: {
         academyId,
-        studentId: data.studentId,
-        teacherId: data.teacherId,
-        instrument: data.instrument,
-        level: data.level ?? null,
-        lessonType: data.lessonType,
+        enrollmentId: data.enrollmentId,
         room: data.room ?? null,
-        lessonFee: data.lessonFee ?? null,
         durationMinutes: data.durationMinutes,
         startTime: data.startTime,
         endTime: data.endTime,
@@ -198,7 +236,6 @@ export async function createLesson(input: unknown): Promise<ActionResult<{ id: s
         status: data.status,
       },
     })
-
     revalidateLessonPaths(lesson.id)
     return { success: true, data: { id: lesson.id } }
   } catch (err) {
@@ -224,13 +261,12 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
   const db = forAcademy(academyId)
   const data = parsed.data
 
-  if (data.studentId) {
-    const student = await db.student.findUnique({ where: { id: data.studentId }, select: { id: true } })
-    if (!student) return { success: false, error: 'Student not found in your academy.' }
-  }
-  if (data.teacherId) {
-    const teacher = await db.teacher.findUnique({ where: { id: data.teacherId }, select: { id: true } })
-    if (!teacher) return { success: false, error: 'Teacher not found in your academy.' }
+  if (data.enrollmentId) {
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: data.enrollmentId },
+      select: { id: true },
+    })
+    if (!enrollment) return { success: false, error: 'Enrollment not found in your academy.' }
   }
 
   let durationMinutes: number | undefined
@@ -242,9 +278,10 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
       select: { startTime: true, endTime: true },
     })
     if (existing) {
-      const start = data.startTime ?? existing.startTime
-      const end = data.endTime ?? existing.endTime
-      durationMinutes = computeDurationMinutes(start, end)
+      durationMinutes = computeDurationMinutes(
+        data.startTime ?? existing.startTime,
+        data.endTime ?? existing.endTime,
+      )
     }
   }
 
@@ -252,29 +289,97 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
     await db.lesson.update({
       where: { id },
       data: {
-        studentId: data.studentId,
-        teacherId: data.teacherId,
-        instrument: data.instrument,
-        level: data.level === undefined ? undefined : data.level ?? null,
-        lessonType: data.lessonType,
+        enrollmentId: data.enrollmentId,
         room: data.room === undefined ? undefined : data.room ?? null,
-        lessonFee: data.lessonFee === undefined ? undefined : data.lessonFee ?? null,
         durationMinutes,
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes === undefined ? undefined : data.notes ?? null,
+        teacherNotes: data.teacherNotes === undefined ? undefined : data.teacherNotes ?? null,
         status: data.status,
       },
     })
-
     revalidateLessonPaths(id)
     return { success: true, data: undefined }
   } catch (err) {
-    if (isNotFoundError(err)) {
-      return { success: false, error: 'Lesson not found.' }
-    }
+    if (isNotFoundError(err)) return { success: false, error: 'Lesson not found.' }
     console.error('updateLesson failed:', err)
     return { success: false, error: 'Something went wrong while saving. Please try again.' }
+  }
+}
+
+/** Calendar drag/drop & resize — updates only times. */
+export async function updateLessonTime(id: string, input: unknown): Promise<ActionResult> {
+  const parsed = lessonTimeUpdateSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: 'Invalid time range.',
+      fieldErrors: flattenFieldErrors(parsed.error),
+    }
+  }
+
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+  const { startTime, endTime } = parsed.data
+
+  try {
+    await db.lesson.update({
+      where: { id },
+      data: {
+        startTime,
+        endTime,
+        durationMinutes: computeDurationMinutes(startTime, endTime),
+      },
+    })
+    revalidateLessonPaths(id)
+    return { success: true, data: undefined }
+  } catch (err) {
+    if (isNotFoundError(err)) return { success: false, error: 'Lesson not found.' }
+    console.error('updateLessonTime failed:', err)
+    return { success: false, error: 'Could not update lesson time.' }
+  }
+}
+
+export async function setLessonStatus(
+  id: string,
+  status: LessonStatusValue,
+  extras?: unknown,
+): Promise<ActionResult> {
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  let notes: string | undefined
+  let teacherNotes: string | undefined
+
+  if (status === 'COMPLETED' && extras !== undefined) {
+    const parsed = lessonCompleteSchema.safeParse(extras)
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: 'Please check the highlighted fields.',
+        fieldErrors: flattenFieldErrors(parsed.error),
+      }
+    }
+    notes = parsed.data.notes
+    teacherNotes = parsed.data.teacherNotes
+  }
+
+  try {
+    await db.lesson.update({
+      where: { id },
+      data: {
+        status,
+        ...(notes !== undefined ? { notes: notes ?? null } : {}),
+        ...(teacherNotes !== undefined ? { teacherNotes: teacherNotes ?? null } : {}),
+      },
+    })
+    revalidateLessonPaths(id)
+    return { success: true, data: undefined }
+  } catch (err) {
+    if (isNotFoundError(err)) return { success: false, error: 'Lesson not found.' }
+    console.error('setLessonStatus failed:', err)
+    return { success: false, error: 'Could not update lesson status.' }
   }
 }
 
@@ -287,9 +392,7 @@ export async function deleteLesson(id: string): Promise<ActionResult> {
     revalidateLessonPaths(id)
     return { success: true, data: undefined }
   } catch (err) {
-    if (isNotFoundError(err)) {
-      return { success: false, error: 'Lesson not found.' }
-    }
+    if (isNotFoundError(err)) return { success: false, error: 'Lesson not found.' }
     console.error('deleteLesson failed:', err)
     return { success: false, error: 'Something went wrong while deleting. Please try again.' }
   }
@@ -299,23 +402,27 @@ export async function listLessonFormOptions() {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 
-  const [students, teachers] = await Promise.all([
-    db.student.findMany({
-      where: { isActive: true },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      select: { id: true, firstName: true, lastName: true, instrument: true },
-    }),
-    db.teacher.findMany({
-      where: { isActive: true },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      select: { id: true, firstName: true, lastName: true, instruments: true },
-    }),
-  ])
+  const enrollments = await db.enrollment.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: [{ startDate: 'desc' }],
+    include: {
+      student: { select: { id: true, firstName: true, lastName: true } },
+      teacher: { select: { id: true, firstName: true, lastName: true } },
+      course: {
+        select: {
+          id: true,
+          name: true,
+          instrument: true,
+          color: true,
+          defaultDuration: true,
+        },
+      },
+    },
+  })
 
-  return { students, teachers }
+  return { enrollments }
 }
 
-/** Dashboard + entity detail helpers */
 export async function getDashboardLessonStats() {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
@@ -357,4 +464,29 @@ export async function getDashboardLessonStats() {
     ])
 
   return { todaysLessons, upcomingLessons, completedToday, cancelledToday, recentLessons }
+}
+
+export async function getCalendarFilterOptions() {
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  const [teachers, students, courses] = await Promise.all([
+    db.teacher.findMany({
+      where: { isActive: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: { id: true, firstName: true, lastName: true },
+    }),
+    db.student.findMany({
+      where: { isActive: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: { id: true, firstName: true, lastName: true },
+    }),
+    db.course.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, instrument: true, color: true },
+    }),
+  ])
+
+  return { teachers, students, courses }
 }

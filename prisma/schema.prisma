@@ -32,6 +32,8 @@ model Academy {
   teachers      Teacher[]
   parents       Parent[]
   parentStudent ParentStudent[]
+  courses       Course[]
+  enrollments   Enrollment[]
   lessons       Lesson[]
   attendances   Attendance[]
   homeworks     Homework[]
@@ -132,12 +134,12 @@ model Student {
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
   // Composite FK: guarantees the linked User belongs to the SAME academy.
-  user        User?           @relation(fields: [academyId, userId], references: [academyId, id], onDelete: SetNull)
-  parents     ParentStudent[]
-  lessons     Lesson[]
-  attendances Attendance[]
-  homework    HomeworkAssignment[]
-  payments    Payment[]
+  user         User?           @relation(fields: [academyId, userId], references: [academyId, id], onDelete: SetNull)
+  parents      ParentStudent[]
+  enrollments  Enrollment[]
+  attendances  Attendance[]
+  homework     HomeworkAssignment[]
+  payments     Payment[]
 
   // email is unique PER ACADEMY, not globally — two unrelated academies
   // must be able to each enroll a student with the same email.
@@ -166,8 +168,8 @@ model Teacher {
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
   // Composite FK: guarantees the linked User belongs to the SAME academy.
-  user    User?    @relation(fields: [academyId, userId], references: [academyId, id])
-  lessons Lesson[]
+  user        User?        @relation(fields: [academyId, userId], references: [academyId, id])
+  enrollments Enrollment[]
 
   @@unique([academyId, email])
   @@unique([academyId, id])
@@ -221,20 +223,70 @@ model ParentStudent {
   @@index([academyId])
 }
 
+/// Catalog course offered by an academy (not a scheduled event).
+model Course {
+  id                String   @id @default(cuid())
+  name              String
+  instrument        String
+  defaultDuration   Int      @default(50)
+  defaultLessonFee  Float?
+  description       String?
+  color             String   @default("#C9A227")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  enrollments Enrollment[]
+
+  @@unique([academyId, id])
+  @@index([academyId])
+  @@index([academyId, isActive])
+  @@index([academyId, instrument])
+}
+
+/// Student registration to a course with an assigned teacher.
+model Enrollment {
+  id        String           @id @default(cuid())
+  studentId String
+  teacherId String
+  courseId  String
+  startDate DateTime         @default(now())
+  status    EnrollmentStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  student Student  @relation(fields: [academyId, studentId], references: [academyId, id])
+  teacher Teacher  @relation(fields: [academyId, teacherId], references: [academyId, id])
+  course  Course   @relation(fields: [academyId, courseId], references: [academyId, id])
+  lessons Lesson[]
+
+  @@unique([academyId, id])
+  @@unique([academyId, studentId, courseId, teacherId])
+  @@index([academyId])
+  @@index([academyId, status])
+  @@index([academyId, studentId])
+  @@index([academyId, teacherId])
+  @@index([academyId, courseId])
+}
+
+/// A single scheduled lesson instance. Belongs to an Enrollment.
 model Lesson {
   id              String       @id @default(cuid())
-  studentId       String
-  teacherId       String
-  instrument      String
-  level           String?
-  lessonType      LessonType   @default(PRIVATE)
+  enrollmentId    String
   room            String?
-  lessonFee       Float?
   durationMinutes Int?
   startTime       DateTime
   endTime         DateTime
   status          LessonStatus @default(PLANNED)
   notes           String?
+  teacherNotes    String?
   /// Reserved for future recurring-lesson series (null = one-off). Not used yet.
   seriesId        String?
   createdAt       DateTime     @default(now())
@@ -243,8 +295,7 @@ model Lesson {
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
-  student    Student     @relation(fields: [academyId, studentId], references: [academyId, id])
-  teacher    Teacher     @relation(fields: [academyId, teacherId], references: [academyId, id])
+  enrollment Enrollment  @relation(fields: [academyId, enrollmentId], references: [academyId, id])
   attendance Attendance?
   homework   Homework[]
 
@@ -253,8 +304,7 @@ model Lesson {
   @@index([academyId, startTime])
   @@index([academyId, status])
   @@index([academyId, seriesId])
-  @@index([academyId, teacherId, startTime])
-  @@index([academyId, studentId, startTime])
+  @@index([academyId, enrollmentId, startTime])
 }
 
 model Attendance {
@@ -375,10 +425,11 @@ enum LessonStatus {
   NO_SHOW
 }
 
-enum LessonType {
-  PRIVATE
-  GROUP
-  TRIAL
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
 }
 
 enum AttendanceStatus {

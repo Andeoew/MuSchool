@@ -14,12 +14,11 @@ export default async function StudentsPage() {
     const students = await db.student.findMany({
       orderBy: { enrolledAt: 'desc' },
       include: {
-        // NOTE: the schema has no direct Student -> Teacher assignment field.
-        // A student's "teacher" only exists via their Lesson records, so we
-        // derive a display value from the most recent lesson.
-        lessons: {
-          orderBy: { startTime: 'desc' },
+        // Teacher is derived from active enrollments (Course architecture).
+        enrollments: {
+          where: { status: 'ACTIVE' },
           take: 1,
+          orderBy: { startDate: 'desc' },
           include: { teacher: { select: { firstName: true, lastName: true } } },
         },
       },
@@ -33,8 +32,8 @@ export default async function StudentsPage() {
       phone: s.phone,
       instrument: s.instrument,
       level: s.level,
-      teacher: s.lessons[0]?.teacher
-        ? `${s.lessons[0].teacher.firstName} ${s.lessons[0].teacher.lastName}`
+      teacher: s.enrollments[0]?.teacher
+        ? `${s.enrollments[0].teacher.firstName} ${s.enrollments[0].teacher.lastName}`
         : null,
       isActive: s.isActive,
       joined: s.enrolledAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),

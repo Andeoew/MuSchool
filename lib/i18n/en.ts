@@ -36,6 +36,7 @@ export const en: Translations = {
     students: 'Students',
     teachers: 'Teachers',
     parents: 'Parents',
+    courses: 'Courses',
     calendar: 'Calendar',
     lessons: 'Lessons',
     attendance: 'Attendance',
@@ -140,6 +141,11 @@ export const en: Translations = {
       title: 'Parents',
       subtitle: 'Manage parent communications',
       addNew: 'New Parent',
+    },
+    courses: {
+      title: 'Courses',
+      subtitle: 'Manage academy courses',
+      addNew: 'New Course',
     },
     lessons: {
       title: 'Lessons',

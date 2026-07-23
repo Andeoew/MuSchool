@@ -5,12 +5,12 @@ import { formatTime } from '@/lib/calendar'
 export type UpcomingLessonItem = {
   id: string
   instrument: string
+  courseName: string
+  courseColor: string
   startTime: string
   studentName: string
   teacherName: string
 }
-
-const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-gold', 'bg-purple-500', 'bg-rose-500']
 
 interface UpcomingLessonsProps {
   title: string
@@ -35,7 +35,7 @@ export function UpcomingLessons({ title, viewAllLabel, lessons }: UpcomingLesson
         <p className="text-sm text-muted-foreground py-4">No upcoming lessons this week.</p>
       ) : (
         <ul role="list" className="flex flex-col divide-y divide-border">
-          {lessons.map((item, i) => {
+          {lessons.map((item) => {
             const start = new Date(item.startTime)
             return (
               <li key={item.id}>
@@ -44,13 +44,14 @@ export function UpcomingLessons({ title, viewAllLabel, lessons }: UpcomingLesson
                   className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90 transition-opacity"
                 >
                   <span
-                    className={cn('w-2.5 h-2.5 rounded-full shrink-0', colors[i % colors.length])}
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: item.courseColor }}
                     aria-hidden="true"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{item.studentName}</p>
                     <p className="text-[11px] text-muted-foreground truncate">
-                      {item.instrument} &middot; {item.teacherName}
+                      {item.courseName} &middot; {item.teacherName}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -58,7 +59,11 @@ export function UpcomingLessons({ title, viewAllLabel, lessons }: UpcomingLesson
                       {formatTime(start)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {start.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
                     </p>
                   </div>
                 </Link>
