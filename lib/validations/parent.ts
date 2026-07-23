@@ -8,10 +8,6 @@ export const createParentSchema = z.object({
   lastName: z.string().trim().min(2, 'Soyad en az 2 karakter olmalı.'),
   email: z.string().trim().email('Geçerli bir e-posta adresi girin.'),
   phone: z.preprocess(emptyToUndefined, z.string().trim().max(30).optional()),
-  tempPassword: z.preprocess(
-    emptyToUndefined,
-    z.string().min(8, 'Geçici parola en az 8 karakter olmalı.').optional(),
-  ),
   createLoginAccount: z.coerce.boolean().default(true),
   studentIds: z.array(z.string()).min(1, 'En az bir öğrenci seçmelisiniz.'),
   relationship: z.enum(PARENT_RELATIONSHIPS).optional(),

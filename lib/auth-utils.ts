@@ -5,6 +5,7 @@ export function getDashboardPathForRole(role: string): string {
     case 'TEACHER':
       return '/teacher/dashboard'
     case 'PARENT':
+    case 'STUDENT':
       return '/student/dashboard'
     case 'SUPER_ADMIN':
     case 'ADMIN':

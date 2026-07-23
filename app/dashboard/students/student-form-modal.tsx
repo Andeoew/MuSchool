@@ -7,6 +7,7 @@ import { calculateAge, isMinor } from '@/lib/age'
 import { PARENT_RELATIONSHIPS } from '@/lib/validations/student'
 import type { StudentRow } from './students-table'
 import { cn } from '@/lib/utils'
+import { CredentialsDialog, type IssuedCredential } from '@/components/credentials-dialog'
 
 type Props = {
   mode: 'create' | 'edit'
@@ -19,7 +20,7 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
-  const [tempPasswordNotice, setTempPasswordNotice] = useState<string | null>(null)
+  const [credentials, setCredentials] = useState<IssuedCredential[] | null>(null)
 
   const [birthDate, setBirthDate] = useState('')
   const [showParentOptional, setShowParentOptional] = useState(false)
@@ -44,7 +45,6 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
   function handleSubmit(formData: FormData) {
     setError(null)
     setFieldErrors({})
-    setTempPasswordNotice(null)
 
     const payload: Record<string, unknown> = {
       firstName: formData.get('firstName'),
@@ -55,6 +55,7 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
       instrument: formData.get('instrument'),
       level: formData.get('level'),
       isActive: formData.get('isActive') === 'on',
+      createLoginAccount: formData.get('createStudentLogin') === 'on',
     }
 
     if (showParentSection) {
@@ -85,13 +86,23 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
         return
       }
 
-      if (mode === 'create' && result.data?.temporaryPassword) {
-        setTempPasswordNotice(result.data.temporaryPassword)
+      if (mode === 'create' && result.data?.credentials?.length) {
+        setCredentials(result.data.credentials)
         return
       }
 
       onSuccess()
     })
+  }
+
+  if (credentials) {
+    return (
+      <CredentialsDialog
+        title="Login account created"
+        credentials={credentials}
+        onDone={onSuccess}
+      />
+    )
   }
 
   return (
@@ -106,24 +117,7 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
           </button>
         </div>
 
-        {tempPasswordNotice ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-foreground">
-              Student and parent were saved. Share this temporary parent password (they must change it on first login):
-            </p>
-            <code className="block rounded-xl border border-border bg-muted px-3 py-2 text-sm font-mono text-foreground break-all">
-              {tempPasswordNotice}
-            </code>
-            <button
-              type="button"
-              onClick={onSuccess}
-              className="px-4 py-2 rounded-xl bg-gold text-background text-sm font-semibold shadow-gold hover:brightness-110 transition-all self-end"
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          <form action={handleSubmit} className="flex flex-col gap-3">
+        <form action={handleSubmit} className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="First name" name="firstName" defaultValue={student?.firstName} error={fieldErrors.firstName} required />
               <Field label="Last name" name="lastName" defaultValue={student?.lastName} error={fieldErrors.lastName} required />
@@ -156,6 +150,12 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
               <input type="checkbox" name="isActive" defaultChecked={student ? student.isActive : true} className="rounded border-border" />
               Active
             </label>
+            {mode === 'create' && (
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" name="createStudentLogin" className="rounded border-border" />
+                Create login account for this student (requires email)
+              </label>
+            )}
 
             {mode === 'create' && birthDate && !under18 && !showParentOptional && (
               <button
@@ -242,7 +242,6 @@ export function StudentFormModal({ mode, student, onClose, onSuccess }: Props) {
               </button>
             </div>
           </form>
-        )}
       </div>
     </div>
   )

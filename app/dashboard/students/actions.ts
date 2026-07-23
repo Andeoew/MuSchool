@@ -2,12 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
-import { auth } from '@/lib/auth'
 import { forAcademy } from '@/lib/tenant-db'
 import { withAcademyTransaction } from '@/lib/tenant-transaction'
 import { prismaBase } from '@/lib/tenant-prisma'
-import { requireAcademyId } from '@/lib/session'
-import { generateTempPassword } from '@/lib/password'
+import { requireAcademyId, requireAdminSession } from '@/lib/session'
+import {
+  provisionUser,
+  resetUserPassword,
+  deleteProvisionedUser,
+  ProvisionError,
+  type ProvisionCredentials,
+} from '@/lib/services/provision-user'
 import {
   createStudentWithParentSchema,
   studentUpdateSchema,
@@ -17,6 +22,12 @@ import {
 export type ActionResult<T = undefined> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> }
+
+export type IssuedLogin = {
+  label: string
+  username: string
+  temporaryPassword: string
+}
 
 function isUniqueConstraintError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
@@ -36,48 +47,12 @@ function flattenFieldErrors(error: { issues: Array<{ path: PropertyKey[]; messag
   return out
 }
 
-async function createParentLoginAccount(opts: {
-  academyId: string
-  parentId: string
-  email: string
-  firstName: string
-  lastName: string
-}): Promise<{ userId: string; temporaryPassword: string }> {
-  const temporaryPassword = generateTempPassword()
-
-  await auth.api.signUpEmail({
-    body: {
-      name: `${opts.firstName} ${opts.lastName}`,
-      email: opts.email,
-      password: temporaryPassword,
-      role: 'PARENT',
-      academyId: opts.academyId,
-      mustChangePassword: true,
-    },
-  })
-
-  const user = await prismaBase.user.findFirst({
-    where: { email: opts.email, academyId: opts.academyId },
-    select: { id: true },
-  })
-
-  if (!user) {
-    throw new Error('Parent user was created but could not be loaded.')
+function toIssued(label: string, creds: ProvisionCredentials): IssuedLogin {
+  return {
+    label,
+    username: creds.username,
+    temporaryPassword: creds.temporaryPassword,
   }
-
-  // Ensure flag is set even if Better Auth ignored the additional field.
-  await prismaBase.user.update({
-    where: { id: user.id },
-    data: { mustChangePassword: true },
-  })
-
-  const db = forAcademy(opts.academyId)
-  await db.parent.update({
-    where: { id: opts.parentId },
-    data: { userId: user.id },
-  })
-
-  return { userId: user.id, temporaryPassword }
 }
 
 async function compensateStudentCreate(opts: {
@@ -85,14 +60,11 @@ async function compensateStudentCreate(opts: {
   studentId: string
   parentId: string | null
   parentWasCreated: boolean
-  createdUserEmail: string | null
+  provisionedEmails: string[]
 }) {
   const db = forAcademy(opts.academyId)
 
-  await db.parentStudent.deleteMany({
-    where: { studentId: opts.studentId },
-  })
-
+  await db.parentStudent.deleteMany({ where: { studentId: opts.studentId } })
   await db.student.delete({ where: { id: opts.studentId } }).catch(() => undefined)
 
   if (opts.parentWasCreated && opts.parentId) {
@@ -102,16 +74,14 @@ async function compensateStudentCreate(opts: {
     }
   }
 
-  if (opts.createdUserEmail) {
-    await prismaBase.user
-      .deleteMany({ where: { email: opts.createdUserEmail, academyId: opts.academyId } })
-      .catch(() => undefined)
+  for (const email of opts.provisionedEmails) {
+    await deleteProvisionedUser({ email, academyId: opts.academyId })
   }
 }
 
 export async function createStudent(
   input: unknown,
-): Promise<ActionResult<{ id: string; temporaryPassword?: string }>> {
+): Promise<ActionResult<{ id: string; credentials?: IssuedLogin[] }>> {
   const parsed = createStudentWithParentSchema.safeParse(input)
   if (!parsed.success) {
     return {
@@ -122,12 +92,13 @@ export async function createStudent(
   }
 
   const { academyId } = await requireAcademyId()
-  const { parent: parentInput, ...studentData } = parsed.data
+  const { parent: parentInput, createLoginAccount, ...studentData } = parsed.data
 
   let studentId = ''
   let parentId: string | null = null
   let parentWasCreated = false
-  let temporaryPassword: string | undefined
+  const provisionedEmails: string[] = []
+  const credentials: IssuedLogin[] = []
 
   try {
     const domain = await withAcademyTransaction(academyId, async (tx, scopedAcademyId) => {
@@ -160,16 +131,30 @@ export async function createStudent(
     studentId = domain.student.id
     parentId = domain.parent?.id ?? null
     parentWasCreated = domain.parentWasCreated
+    const db = forAcademy(academyId)
+
+    if (createLoginAccount && studentData.email) {
+      const login = await provisionUser({
+        academyId,
+        email: studentData.email,
+        name: `${studentData.firstName} ${studentData.lastName}`,
+        role: 'STUDENT',
+      })
+      provisionedEmails.push(studentData.email)
+      await db.student.update({ where: { id: studentId }, data: { userId: login.userId } })
+      credentials.push(toIssued('Student login', login))
+    }
 
     if (parentInput?.createLoginAccount && domain.parent && !domain.parent.userId) {
-      const login = await createParentLoginAccount({
+      const login = await provisionUser({
         academyId,
-        parentId: domain.parent.id,
         email: domain.parent.email,
-        firstName: domain.parent.firstName,
-        lastName: domain.parent.lastName,
+        name: `${domain.parent.firstName} ${domain.parent.lastName}`,
+        role: 'PARENT',
       })
-      temporaryPassword = login.temporaryPassword
+      provisionedEmails.push(domain.parent.email)
+      await db.parent.update({ where: { id: domain.parent.id }, data: { userId: login.userId } })
+      credentials.push(toIssued('Parent login', login))
     }
 
     revalidatePath('/dashboard/students')
@@ -178,7 +163,10 @@ export async function createStudent(
 
     return {
       success: true,
-      data: { id: studentId, temporaryPassword },
+      data: {
+        id: studentId,
+        credentials: credentials.length ? credentials : undefined,
+      },
     }
   } catch (err) {
     if (studentId) {
@@ -187,8 +175,12 @@ export async function createStudent(
         studentId,
         parentId,
         parentWasCreated,
-        createdUserEmail: parentInput?.createLoginAccount ? parentInput.email : null,
+        provisionedEmails,
       })
+    }
+
+    if (err instanceof ProvisionError && err.code === 'DUPLICATE_EMAIL') {
+      return { success: false, error: err.message }
     }
 
     if (isUniqueConstraintError(err)) {
@@ -306,7 +298,20 @@ export async function deleteStudent(id: string): Promise<ActionResult> {
   const db = forAcademy(academyId)
 
   try {
+    const student = await db.student.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    })
+    if (!student) {
+      return { success: false, error: 'Student not found.' }
+    }
+
     await db.student.delete({ where: { id } })
+
+    if (student.userId) {
+      await prismaBase.user.deleteMany({ where: { id: student.userId, academyId } }).catch(() => undefined)
+    }
+
     revalidatePath('/dashboard/students')
     revalidatePath(`/dashboard/students/${id}`)
     return { success: true, data: undefined }
@@ -316,5 +321,56 @@ export async function deleteStudent(id: string): Promise<ActionResult> {
     }
     console.error('deleteStudent failed:', err)
     return { success: false, error: 'Something went wrong while deleting. Please try again.' }
+  }
+}
+
+export async function resetStudentPassword(
+  studentId: string,
+): Promise<ActionResult<{ username: string; temporaryPassword: string }>> {
+  await requireAdminSession()
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  const student = await db.student.findUnique({
+    where: { id: studentId },
+    select: { userId: true, email: true, firstName: true, lastName: true },
+  })
+
+  if (!student) {
+    return { success: false, error: 'Student not found.' }
+  }
+
+  try {
+    let userId = student.userId
+    if (!userId) {
+      if (!student.email) {
+        return { success: false, error: 'Student has no email — cannot create a login account.' }
+      }
+      const login = await provisionUser({
+        academyId,
+        email: student.email,
+        name: `${student.firstName} ${student.lastName}`,
+        role: 'STUDENT',
+      })
+      await db.student.update({ where: { id: studentId }, data: { userId: login.userId } })
+      revalidatePath('/dashboard/students')
+      revalidatePath(`/dashboard/students/${studentId}`)
+      return {
+        success: true,
+        data: { username: login.username, temporaryPassword: login.temporaryPassword },
+      }
+    }
+
+    const reset = await resetUserPassword({ userId, academyId })
+    return {
+      success: true,
+      data: { username: reset.username, temporaryPassword: reset.temporaryPassword },
+    }
+  } catch (err) {
+    if (err instanceof ProvisionError) {
+      return { success: false, error: err.message }
+    }
+    console.error('resetStudentPassword failed:', err)
+    return { success: false, error: 'Could not reset password.' }
   }
 }

@@ -3,39 +3,39 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { KeyRound, Pencil, Trash2 } from 'lucide-react'
-import type { Student } from '@prisma/client'
-import { deleteStudent, resetStudentPassword } from '../actions'
-import { StudentFormModal } from '../student-form-modal'
+import type { Teacher } from '@prisma/client'
+import { deleteTeacher, resetTeacherPassword } from '@/actions/teacher'
+import { TeacherFormModal } from '../teacher-form-modal'
 import { CredentialsDialog, type IssuedCredential } from '@/components/credentials-dialog'
 
-export function StudentDetailActions({ student }: { student: Student }) {
+export function TeacherDetailActions({ teacher }: { teacher: Teacher }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [editing, setEditing] = useState(false)
   const [credentials, setCredentials] = useState<IssuedCredential | null>(null)
 
   function handleDelete() {
-    if (!confirm('Delete this student? This cannot be undone.')) return
+    if (!confirm('Delete this teacher? This cannot be undone.')) return
     startTransition(async () => {
-      const result = await deleteStudent(student.id)
+      const result = await deleteTeacher(teacher.id)
       if (!result.success) {
         alert(result.error)
         return
       }
-      router.push('/dashboard/students')
+      router.push('/dashboard/teachers')
     })
   }
 
   function handleResetPassword() {
-    if (!confirm(`Reset password for ${student.firstName} ${student.lastName}?`)) return
+    if (!confirm(`Reset password for ${teacher.firstName} ${teacher.lastName}?`)) return
     startTransition(async () => {
-      const result = await resetStudentPassword(student.id)
+      const result = await resetTeacherPassword(teacher.id)
       if (!result.success) {
         alert(result.error)
         return
       }
       setCredentials({
-        label: 'Student login',
+        label: 'Teacher login',
         username: result.data.username,
         temporaryPassword: result.data.temporaryPassword,
       })
@@ -68,19 +68,18 @@ export function StudentDetailActions({ student }: { student: Student }) {
       </button>
 
       {editing && (
-        <StudentFormModal
+        <TeacherFormModal
           mode="edit"
-          student={{
-            id: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            email: student.email,
-            phone: student.phone,
-            instrument: student.instrument,
-            level: student.level,
-            teacher: null,
-            isActive: student.isActive,
-            joined: '',
+          teacher={{
+            id: teacher.id,
+            firstName: teacher.firstName,
+            lastName: teacher.lastName,
+            email: teacher.email,
+            phone: teacher.phone,
+            instruments: teacher.instruments,
+            isActive: teacher.isActive,
+            hasLogin: Boolean(teacher.userId),
+            hiredAt: '',
           }}
           onClose={() => setEditing(false)}
           onSuccess={() => {

@@ -1,6 +1,6 @@
 // MuSchool — Shared TypeScript types
 
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'PARENT'
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT'
 export type LessonStatus = 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
 export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'GRADED'

@@ -18,11 +18,12 @@ export const studentInputSchema = z.object({
   instrument: z.preprocess(emptyToUndefined, z.string().trim().max(60).optional()),
   level: z.preprocess(emptyToUndefined, z.string().trim().max(60).optional()),
   isActive: z.coerce.boolean().default(true),
+  createLoginAccount: z.coerce.boolean().default(false),
 })
 
 export type StudentInput = z.infer<typeof studentInputSchema>
 
-export const studentUpdateSchema = studentInputSchema.partial()
+export const studentUpdateSchema = studentInputSchema.omit({ createLoginAccount: true }).partial()
 
 /** Parent fields collected during student registration. */
 export const parentInlineSchema = z.object({
@@ -41,6 +42,7 @@ export type ParentInlineInput = z.infer<typeof parentInlineSchema>
 /**
  * Full create payload: student always required; parent optional unless the
  * student is a minor (under 18) with a birth date provided.
+ * Student login requires an email address.
  */
 export const createStudentWithParentSchema = studentInputSchema
   .extend({
@@ -52,6 +54,13 @@ export const createStudentWithParentSchema = studentInputSchema
         code: z.ZodIssueCode.custom,
         message: 'Parent information is required for students under 18.',
         path: ['parent'],
+      })
+    }
+    if (data.createLoginAccount && !data.email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Email is required to create a student login account.',
+        path: ['email'],
       })
     }
   })

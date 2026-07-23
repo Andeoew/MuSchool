@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { X, Eye, EyeOff } from 'lucide-react'
+import { X } from 'lucide-react'
 import { createParentWithStudents } from '@/actions/parent'
 import { listStudentsForParentForm } from '@/actions/teacher'
+import { CredentialsDialog, type IssuedCredential } from '@/components/credentials-dialog'
 
 type StudentOption = {
   id: string
@@ -24,7 +25,7 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
-  const [showPassword, setShowPassword] = useState(false)
+  const [credentials, setCredentials] = useState<IssuedCredential[] | null>(null)
 
   useEffect(() => {
     listStudentsForParentForm()
@@ -48,7 +49,6 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
       lastName: formData.get('lastName'),
       email: formData.get('email'),
       phone: formData.get('phone'),
-      tempPassword: formData.get('tempPassword') || undefined,
       createLoginAccount: formData.get('createLoginAccount') === 'on',
       studentIds: selectedIds,
     }
@@ -62,8 +62,23 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
         return
       }
 
+      if (result.data.credentials?.length) {
+        setCredentials(result.data.credentials)
+        return
+      }
+
       onSuccess()
     })
+  }
+
+  if (credentials) {
+    return (
+      <CredentialsDialog
+        title="Parent account created"
+        credentials={credentials}
+        onDone={onSuccess}
+      />
+    )
   }
 
   return (
@@ -87,26 +102,6 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
             <input type="checkbox" name="createLoginAccount" defaultChecked className="rounded border-border" />
             Create login account for this parent
           </label>
-          <div className="flex flex-col gap-1">
-            <label className="text-[12px] font-medium text-muted-foreground">Geçici Parola (optional — auto-generated if empty)</label>
-            <div className="relative">
-              <input
-                name="tempPassword"
-                type={showPassword ? 'text' : 'password'}
-                minLength={8}
-                placeholder="Leave blank to auto-generate"
-                className="h-9 w-full rounded-xl border border-border bg-muted px-3 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/60 transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {fieldErrors.tempPassword && <p className="text-[11px] text-rose-500">{fieldErrors.tempPassword[0]}</p>}
-          </div>
 
           <div className="flex flex-col gap-2 mt-1">
             <label className="text-[12px] font-medium text-muted-foreground">Eşleştirilecek Öğrenciler</label>

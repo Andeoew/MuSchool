@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Link2, Pencil, Trash2, UserPlus } from 'lucide-react'
+import { Link2, KeyRound, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { deleteParent } from '@/actions/parent'
+import { deleteParent, resetParentPassword } from '@/actions/parent'
 import { ParentFormModal } from './parent-form-modal'
 import { ParentEditModal } from './parent-edit-modal'
 import { ParentLinkModal } from './parent-link-modal'
+import { CredentialsDialog, type IssuedCredential } from '@/components/credentials-dialog'
 
 export type ParentRow = {
   id: string
@@ -30,6 +31,7 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
   const [editing, setEditing] = useState<ParentRow | null>(null)
   const [linking, setLinking] = useState<ParentRow | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [credentials, setCredentials] = useState<IssuedCredential | null>(null)
 
   function handleDelete(parent: ParentRow) {
     if (!confirm(`Delete ${parent.firstName} ${parent.lastName}? Linked student relationships will be removed.`)) {
@@ -43,6 +45,23 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
         alert(result.error)
         return
       }
+      router.refresh()
+    })
+  }
+
+  function handleResetPassword(parent: ParentRow) {
+    if (!confirm(`Reset password for ${parent.firstName} ${parent.lastName}?`)) return
+    startTransition(async () => {
+      const result = await resetParentPassword(parent.id)
+      if (!result.success) {
+        alert(result.error)
+        return
+      }
+      setCredentials({
+        label: 'Parent login',
+        username: result.data.username,
+        temporaryPassword: result.data.temporaryPassword,
+      })
       router.refresh()
     })
   }
@@ -98,6 +117,14 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
                   title="Link student"
                 >
                   <Link2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResetPassword(parent)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Reset Password"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
@@ -179,6 +206,14 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
             setLinking(null)
             router.refresh()
           }}
+        />
+      )}
+
+      {credentials && (
+        <CredentialsDialog
+          title="Password reset"
+          credentials={credentials}
+          onDone={() => setCredentials(null)}
         />
       )}
     </div>

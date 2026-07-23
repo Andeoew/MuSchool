@@ -2,12 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
-import { auth } from '@/lib/auth'
 import { forAcademy } from '@/lib/tenant-db'
 import { withAcademyTransaction } from '@/lib/tenant-transaction'
 import { prismaBase } from '@/lib/tenant-prisma'
 import { requireAdminSession, requireAcademyId } from '@/lib/session'
-import { generateTempPassword } from '@/lib/password'
+import {
+  provisionUser,
+  resetUserPassword,
+  deleteProvisionedUser,
+  ProvisionError,
+} from '@/lib/services/provision-user'
 import {
   createParentSchema,
   updateParentSchema,
@@ -17,6 +21,12 @@ import {
 export type ActionResult<T = undefined> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> }
+
+export type IssuedLogin = {
+  label: string
+  username: string
+  temporaryPassword: string
+}
 
 function isUniqueConstraintError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
@@ -34,7 +44,7 @@ function revalidateParentPaths() {
 
 export async function createParentWithStudents(
   input: unknown,
-): Promise<ActionResult<{ id: string; temporaryPassword?: string }>> {
+): Promise<ActionResult<{ id: string; credentials?: IssuedLogin[] }>> {
   await requireAdminSession()
 
   const parsed = createParentSchema.safeParse(input)
@@ -49,6 +59,7 @@ export async function createParentWithStudents(
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
+  let provisionedEmail: string | null = null
 
   const students = await db.student.findMany({
     where: { id: { in: data.studentIds } },
@@ -58,9 +69,6 @@ export async function createParentWithStudents(
   if (students.length !== data.studentIds.length) {
     return { success: false, error: 'Seçilen öğrencilerden biri veya birkaçı bulunamadı.' }
   }
-
-  let temporaryPassword: string | undefined
-  let createdUserEmail: string | null = null
 
   try {
     const parent = await withAcademyTransaction(academyId, async (tx, scopedAcademyId) => {
@@ -99,47 +107,39 @@ export async function createParentWithStudents(
       return existing
     })
 
+    let credentials: IssuedLogin[] | undefined
     const wantsLogin = data.createLoginAccount !== false
+
     if (wantsLogin && !parent.userId) {
-      temporaryPassword = data.tempPassword?.trim() || generateTempPassword()
-      createdUserEmail = data.email
-
-      await auth.api.signUpEmail({
-        body: {
-          name: `${data.firstName} ${data.lastName}`,
-          email: data.email,
-          password: temporaryPassword,
-          role: 'PARENT',
-          academyId,
-          mustChangePassword: true,
-        },
+      const login = await provisionUser({
+        academyId,
+        email: data.email,
+        name: `${data.firstName} ${data.lastName}`,
+        role: 'PARENT',
       })
-
-      const user = await prismaBase.user.findFirst({
-        where: { email: data.email, academyId },
-        select: { id: true },
-      })
-
-      if (!user) {
-        throw new Error('Veli hesabı oluşturuldu ancak profil bağlanamadı.')
-      }
-
-      await prismaBase.user.update({
-        where: { id: user.id },
-        data: { mustChangePassword: true },
-      })
-
+      provisionedEmail = data.email
       await db.parent.update({
         where: { id: parent.id },
-        data: { userId: user.id },
+        data: { userId: login.userId },
       })
+      credentials = [
+        {
+          label: 'Parent login',
+          username: login.username,
+          temporaryPassword: login.temporaryPassword,
+        },
+      ]
     }
 
     revalidateParentPaths()
-    return { success: true, data: { id: parent.id, temporaryPassword } }
+    return { success: true, data: { id: parent.id, credentials } }
   } catch (err) {
-    if (createdUserEmail) {
-      await prismaBase.user.deleteMany({ where: { email: createdUserEmail, academyId } }).catch(() => undefined)
+    if (provisionedEmail) {
+      await deleteProvisionedUser({ email: provisionedEmail, academyId })
+    }
+
+    if (err instanceof ProvisionError && err.code === 'DUPLICATE_EMAIL') {
+      return { success: false, error: err.message }
     }
 
     if (isUniqueConstraintError(err) || /already exists|duplicate/i.test(String(err))) {
@@ -279,6 +279,52 @@ export async function linkParentToStudents(input: unknown): Promise<ActionResult
   }
 }
 
+export async function resetParentPassword(
+  parentId: string,
+): Promise<ActionResult<{ username: string; temporaryPassword: string }>> {
+  await requireAdminSession()
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  const parent = await db.parent.findUnique({
+    where: { id: parentId },
+    select: { userId: true, email: true, firstName: true, lastName: true },
+  })
+
+  if (!parent) {
+    return { success: false, error: 'Veli bulunamadı.' }
+  }
+
+  try {
+    if (!parent.userId) {
+      const login = await provisionUser({
+        academyId,
+        email: parent.email,
+        name: `${parent.firstName} ${parent.lastName}`,
+        role: 'PARENT',
+      })
+      await db.parent.update({ where: { id: parentId }, data: { userId: login.userId } })
+      revalidateParentPaths()
+      return {
+        success: true,
+        data: { username: login.username, temporaryPassword: login.temporaryPassword },
+      }
+    }
+
+    const reset = await resetUserPassword({ userId: parent.userId, academyId })
+    return {
+      success: true,
+      data: { username: reset.username, temporaryPassword: reset.temporaryPassword },
+    }
+  } catch (err) {
+    if (err instanceof ProvisionError) {
+      return { success: false, error: err.message }
+    }
+    console.error('resetParentPassword failed:', err)
+    return { success: false, error: 'Parola sıfırlanamadı.' }
+  }
+}
+
 export async function listParentsForAcademy() {
   await requireAdminSession()
   const { academyId } = await requireAcademyId()
@@ -287,6 +333,7 @@ export async function listParentsForAcademy() {
   return db.parent.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
+      user: { select: { id: true } },
       students: {
         include: {
           student: {

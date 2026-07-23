@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  if (sessionCookie && pathname.startsWith('/student') && role !== 'PARENT' && !isAdminRole(role ?? '')) {
+  if (sessionCookie && pathname.startsWith('/student') && role !== 'PARENT' && role !== 'STUDENT' && !isAdminRole(role ?? '')) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 

@@ -1,8 +1,9 @@
 import { listTeachersForAcademy } from '@/actions/teacher'
-import { TeachersTable, type TeacherRow } from './teachers-table'
+import { TeachersTable, type TeacherRow } from '@/app/dashboard/teachers/teachers-table'
 
 export const dynamic = 'force-dynamic'
 
+/** Admin alias — same production Teacher CRUD as /dashboard/teachers. */
 export default async function AdminTeachersPage() {
   const teachers = await listTeachersForAcademy()
 
@@ -14,7 +15,8 @@ export default async function AdminTeachersPage() {
     phone: teacher.phone,
     instruments: teacher.instruments,
     isActive: teacher.isActive,
-    hiredAt: teacher.hiredAt.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    hasLogin: Boolean(teacher.userId),
+    hiredAt: teacher.hiredAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
   }))
 
   return <TeachersTable teachers={rows} />

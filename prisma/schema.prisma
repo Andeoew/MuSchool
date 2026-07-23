@@ -62,6 +62,7 @@ model User {
   accounts      Account[]
   teacher       Teacher?
   parent        Parent?
+  student       Student?
   announcements Announcement[]
 
   // Enables composite FK references from Teacher.user / Parent.user and Announcement.author
@@ -113,6 +114,7 @@ model Verification {
 
 model Student {
   id         String    @id @default(cuid())
+  userId     String?   @unique
   firstName  String
   lastName   String
   email      String?
@@ -129,6 +131,8 @@ model Student {
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
+  // Composite FK: guarantees the linked User belongs to the SAME academy.
+  user        User?           @relation(fields: [academyId, userId], references: [academyId, id], onDelete: SetNull)
   parents     ParentStudent[]
   lessons     Lesson[]
   attendances Attendance[]
@@ -139,6 +143,7 @@ model Student {
   // must be able to each enroll a student with the same email.
   @@unique([academyId, email])
   @@unique([academyId, id])
+  @@unique([academyId, userId])
   @@index([academyId])
   @@index([academyId, isActive])
 }
@@ -352,6 +357,7 @@ enum Role {
   ADMIN
   TEACHER
   PARENT
+  STUDENT
 }
 
 enum LessonStatus {
