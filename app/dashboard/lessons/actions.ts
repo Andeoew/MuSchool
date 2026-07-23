@@ -4,11 +4,30 @@ import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
-import { lessonInputSchema, lessonUpdateSchema } from '@/lib/validations/lesson'
+import {
+  lessonInputSchema,
+  lessonUpdateSchema,
+  computeDurationMinutes,
+  type LessonStatusValue,
+  type LessonTypeValue,
+} from '@/lib/validations/lesson'
 
 export type ActionResult<T = undefined> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> }
+
+export type LessonListFilters = {
+  search?: string
+  teacherId?: string
+  studentId?: string
+  instrument?: string
+  status?: LessonStatusValue | 'ALL'
+  lessonType?: LessonTypeValue | 'ALL'
+  dateFrom?: string
+  dateTo?: string
+  sort?: 'date' | 'teacher' | 'student'
+  sortDir?: 'asc' | 'desc'
+}
 
 function isUniqueConstraintError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
@@ -28,11 +47,13 @@ function flattenFieldErrors(error: { issues: Array<{ path: PropertyKey[]; messag
   return out
 }
 
-function revalidateLessonPaths() {
+function revalidateLessonPaths(id?: string) {
   revalidatePath('/dashboard/calendar')
   revalidatePath('/dashboard/lessons')
+  revalidatePath('/dashboard')
   revalidatePath('/dashboard/students')
   revalidatePath('/dashboard/teachers')
+  if (id) revalidatePath(`/dashboard/lessons/${id}`)
 }
 
 const lessonInclude = {
@@ -44,6 +65,71 @@ const lessonInclude = {
   },
 } as const
 
+function startOfDay(d: Date) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function endOfDay(d: Date) {
+  const x = new Date(d)
+  x.setHours(23, 59, 59, 999)
+  return x
+}
+
+export async function listLessons(filters: LessonListFilters = {}) {
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  const where: Prisma.LessonWhereInput = {}
+
+  if (filters.teacherId) where.teacherId = filters.teacherId
+  if (filters.studentId) where.studentId = filters.studentId
+  if (filters.instrument) where.instrument = filters.instrument
+  if (filters.status && filters.status !== 'ALL') where.status = filters.status
+  if (filters.lessonType && filters.lessonType !== 'ALL') where.lessonType = filters.lessonType
+
+  if (filters.dateFrom || filters.dateTo) {
+    where.startTime = {}
+    if (filters.dateFrom) {
+      const from = new Date(filters.dateFrom)
+      if (!Number.isNaN(from.getTime())) where.startTime.gte = startOfDay(from)
+    }
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo)
+      if (!Number.isNaN(to.getTime())) where.startTime.lte = endOfDay(to)
+    }
+  }
+
+  if (filters.search?.trim()) {
+    const q = filters.search.trim()
+    where.OR = [
+      { instrument: { contains: q, mode: 'insensitive' } },
+      { room: { contains: q, mode: 'insensitive' } },
+      { notes: { contains: q, mode: 'insensitive' } },
+      { student: { firstName: { contains: q, mode: 'insensitive' } } },
+      { student: { lastName: { contains: q, mode: 'insensitive' } } },
+      { teacher: { firstName: { contains: q, mode: 'insensitive' } } },
+      { teacher: { lastName: { contains: q, mode: 'insensitive' } } },
+    ]
+  }
+
+  const sort = filters.sort ?? 'date'
+  const dir = filters.sortDir ?? 'desc'
+  const orderBy: Prisma.LessonOrderByWithRelationInput[] =
+    sort === 'teacher'
+      ? [{ teacher: { lastName: dir } }, { startTime: 'desc' }]
+      : sort === 'student'
+        ? [{ student: { lastName: dir } }, { startTime: 'desc' }]
+        : [{ startTime: dir }]
+
+  return db.lesson.findMany({
+    where,
+    orderBy,
+    include: lessonInclude,
+  })
+}
+
 export async function listLessonsInRange(start: Date, end: Date) {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
@@ -51,7 +137,7 @@ export async function listLessonsInRange(start: Date, end: Date) {
   return db.lesson.findMany({
     where: {
       startTime: { gte: start, lt: end },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED'] },
     },
     orderBy: { startTime: 'asc' },
     include: lessonInclude,
@@ -64,7 +150,11 @@ export async function getLesson(id: string) {
 
   return db.lesson.findUnique({
     where: { id },
-    include: lessonInclude,
+    include: {
+      ...lessonInclude,
+      attendance: true,
+      homework: { take: 5, orderBy: { createdAt: 'desc' } },
+    },
   })
 }
 
@@ -93,12 +183,15 @@ export async function createLesson(input: unknown): Promise<ActionResult<{ id: s
   try {
     const lesson = await db.lesson.create({
       data: {
+        academyId,
         studentId: data.studentId,
         teacherId: data.teacherId,
-        subject: data.subject,
+        instrument: data.instrument,
         level: data.level ?? null,
         lessonType: data.lessonType,
         room: data.room ?? null,
+        lessonFee: data.lessonFee ?? null,
+        durationMinutes: data.durationMinutes,
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes ?? null,
@@ -106,7 +199,7 @@ export async function createLesson(input: unknown): Promise<ActionResult<{ id: s
       },
     })
 
-    revalidateLessonPaths()
+    revalidateLessonPaths(lesson.id)
     return { success: true, data: { id: lesson.id } }
   } catch (err) {
     if (isUniqueConstraintError(err)) {
@@ -140,16 +233,33 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
     if (!teacher) return { success: false, error: 'Teacher not found in your academy.' }
   }
 
+  let durationMinutes: number | undefined
+  if (data.startTime && data.endTime) {
+    durationMinutes = computeDurationMinutes(data.startTime, data.endTime)
+  } else if (data.startTime || data.endTime) {
+    const existing = await db.lesson.findUnique({
+      where: { id },
+      select: { startTime: true, endTime: true },
+    })
+    if (existing) {
+      const start = data.startTime ?? existing.startTime
+      const end = data.endTime ?? existing.endTime
+      durationMinutes = computeDurationMinutes(start, end)
+    }
+  }
+
   try {
     await db.lesson.update({
       where: { id },
       data: {
         studentId: data.studentId,
         teacherId: data.teacherId,
-        subject: data.subject,
+        instrument: data.instrument,
         level: data.level === undefined ? undefined : data.level ?? null,
         lessonType: data.lessonType,
         room: data.room === undefined ? undefined : data.room ?? null,
+        lessonFee: data.lessonFee === undefined ? undefined : data.lessonFee ?? null,
+        durationMinutes,
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes === undefined ? undefined : data.notes ?? null,
@@ -157,7 +267,7 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
       },
     })
 
-    revalidateLessonPaths()
+    revalidateLessonPaths(id)
     return { success: true, data: undefined }
   } catch (err) {
     if (isNotFoundError(err)) {
@@ -174,7 +284,7 @@ export async function deleteLesson(id: string): Promise<ActionResult> {
 
   try {
     await db.lesson.delete({ where: { id } })
-    revalidateLessonPaths()
+    revalidateLessonPaths(id)
     return { success: true, data: undefined }
   } catch (err) {
     if (isNotFoundError(err)) {
@@ -185,7 +295,6 @@ export async function deleteLesson(id: string): Promise<ActionResult> {
   }
 }
 
-/** Options for the lesson form — academy-scoped. */
 export async function listLessonFormOptions() {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
@@ -204,4 +313,48 @@ export async function listLessonFormOptions() {
   ])
 
   return { students, teachers }
+}
+
+/** Dashboard + entity detail helpers */
+export async function getDashboardLessonStats() {
+  const { academyId } = await requireAcademyId()
+  const db = forAcademy(academyId)
+
+  const now = new Date()
+  const todayStart = startOfDay(now)
+  const todayEnd = endOfDay(now)
+  const weekEnd = new Date(now)
+  weekEnd.setDate(weekEnd.getDate() + 7)
+
+  const [todaysLessons, upcomingLessons, completedToday, cancelledToday, recentLessons] =
+    await Promise.all([
+      db.lesson.findMany({
+        where: { startTime: { gte: todayStart, lte: todayEnd }, status: { not: 'CANCELLED' } },
+        orderBy: { startTime: 'asc' },
+        include: lessonInclude,
+      }),
+      db.lesson.findMany({
+        where: {
+          startTime: { gt: todayEnd, lte: weekEnd },
+          status: 'PLANNED',
+        },
+        orderBy: { startTime: 'asc' },
+        take: 5,
+        include: lessonInclude,
+      }),
+      db.lesson.count({
+        where: { startTime: { gte: todayStart, lte: todayEnd }, status: 'COMPLETED' },
+      }),
+      db.lesson.count({
+        where: { startTime: { gte: todayStart, lte: todayEnd }, status: 'CANCELLED' },
+      }),
+      db.lesson.findMany({
+        where: { startTime: { lt: now } },
+        orderBy: { startTime: 'desc' },
+        take: 5,
+        include: lessonInclude,
+      }),
+    ])
+
+  return { todaysLessons, upcomingLessons, completedToday, cancelledToday, recentLessons }
 }

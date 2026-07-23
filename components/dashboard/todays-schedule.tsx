@@ -1,34 +1,45 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { formatTime } from '@/lib/calendar'
+import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
-const lessons = [
-  { time: '09:00', end: '09:50', student: 'Emma Thompson',   teacher: 'Öğr. Clarke',   subject: 'Piyano',  level: 'Seviye 3',     color: 'bg-gold',         status: 'completed' },
-  { time: '10:00', end: '10:50', student: 'James Wilson',    teacher: 'Öğr. Rivera',   subject: 'Gitar',   level: 'Başlangıç',    color: 'bg-blue-500',     status: 'completed' },
-  { time: '11:30', end: '12:20', student: 'Sofia Martínez',  teacher: 'Öğr. Clarke',   subject: 'Keman',   level: 'İleri',        color: 'bg-emerald-500',  status: 'ongoing'   },
-  { time: '13:00', end: '13:50', student: 'Noah Park',       teacher: 'Öğr. Chen',     subject: 'Davul',   level: 'Orta',         color: 'bg-purple-500',   status: 'upcoming'  },
-  { time: '14:30', end: '15:20', student: 'Aisha Johnson',   teacher: 'Öğr. Rivera',   subject: 'Vokal',   level: 'Seviye 2',     color: 'bg-rose-500',     status: 'upcoming'  },
-  { time: '16:00', end: '16:50', student: 'Luca Bianchi',    teacher: 'Öğr. Clarke',   subject: 'Piyano',  level: 'Seviye 1',     color: 'bg-amber-500',    status: 'upcoming'  },
-]
+export type ScheduleLessonItem = {
+  id: string
+  instrument: string
+  status: string
+  startTime: string
+  endTime: string
+  studentName: string
+  teacherName: string
+  level?: string | null
+}
+
+const statusTone: Record<string, string> = {
+  PLANNED: 'upcoming',
+  COMPLETED: 'completed',
+  CANCELLED: 'completed',
+  POSTPONED: 'upcoming',
+  NO_SHOW: 'completed',
+}
 
 const statusBadge: Record<string, string> = {
   completed: 'bg-muted text-muted-foreground',
-  ongoing:   'bg-emerald-500/15 text-emerald-500',
-  upcoming:  'bg-muted text-muted-foreground',
+  ongoing: 'bg-emerald-500/15 text-emerald-500',
+  upcoming: 'bg-muted text-muted-foreground',
 }
 
-const statusLabel: Record<string, string> = {
-  completed: 'Tamamlandı',
-  ongoing:   'Devam ediyor',
-  upcoming:  'Yaklaşan',
-}
+const colors = ['bg-gold', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500', 'bg-amber-500']
 
 interface TodaysScheduleProps {
   title: string
   subtitle: string
   viewCalendarLabel: string
+  lessons: ScheduleLessonItem[]
 }
 
-export function TodaysSchedule({ title, subtitle, viewCalendarLabel }: TodaysScheduleProps) {
+export function TodaysSchedule({ title, subtitle, viewCalendarLabel, lessons }: TodaysScheduleProps) {
+  const now = Date.now()
+
   return (
     <div className="flex flex-col gap-4 p-5 rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between">
@@ -44,35 +55,64 @@ export function TodaysSchedule({ title, subtitle, viewCalendarLabel }: TodaysSch
         </Link>
       </div>
 
-      <div className="flex flex-col divide-y divide-border">
-        {lessons.map((lesson) => (
-          <div
-            key={`${lesson.time}-${lesson.student}`}
-            className={cn(
-              'flex items-center gap-3 py-3 first:pt-0 last:pb-0',
-              lesson.status === 'completed' && 'opacity-55'
-            )}
-          >
-            <div className="w-[68px] shrink-0">
-              <p className="text-[11px] font-semibold text-foreground tabular-nums">{lesson.time}</p>
-              <p className="text-[10px] text-muted-foreground tabular-nums">{lesson.end}</p>
-            </div>
+      {lessons.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">No lessons scheduled for today.</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-border">
+          {lessons.map((lesson, i) => {
+            const start = new Date(lesson.startTime)
+            const end = new Date(lesson.endTime)
+            const tone =
+              lesson.status === 'COMPLETED'
+                ? 'completed'
+                : start.getTime() <= now && end.getTime() >= now
+                  ? 'ongoing'
+                  : statusTone[lesson.status] ?? 'upcoming'
 
-            <span className={cn('w-1 h-10 rounded-full shrink-0', lesson.color)} aria-hidden="true" />
+            return (
+              <Link
+                key={lesson.id}
+                href={`/dashboard/lessons/${lesson.id}`}
+                className={cn(
+                  'flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90 transition-opacity',
+                  tone === 'completed' && 'opacity-55',
+                )}
+              >
+                <div className="w-[68px] shrink-0">
+                  <p className="text-[11px] font-semibold text-foreground tabular-nums">
+                    {formatTime(start)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">{formatTime(end)}</p>
+                </div>
 
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-foreground truncate">{lesson.student}</p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {lesson.subject} &middot; {lesson.level} &middot; {lesson.teacher}
-              </p>
-            </div>
+                <span
+                  className={cn('w-1 h-10 rounded-full shrink-0', colors[i % colors.length])}
+                  aria-hidden="true"
+                />
 
-            <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0', statusBadge[lesson.status])}>
-              {statusLabel[lesson.status]}
-            </span>
-          </div>
-        ))}
-      </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-foreground truncate">{lesson.studentName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {lesson.instrument}
+                    {lesson.level ? ` · ${lesson.level}` : ''} · {lesson.teacherName}
+                  </p>
+                </div>
+
+                <span
+                  className={cn(
+                    'text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0',
+                    statusBadge[tone],
+                  )}
+                >
+                  {tone === 'ongoing'
+                    ? 'In progress'
+                    : LESSON_STATUS_LABELS[lesson.status as LessonStatusValue] ?? lesson.status}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

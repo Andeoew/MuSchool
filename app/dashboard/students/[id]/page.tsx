@@ -1,7 +1,10 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
 import { StudentDetailActions } from './student-detail-actions'
+import { formatTime } from '@/lib/calendar'
+import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +12,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const { id } = await params
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
+  const now = new Date()
 
   const student = await db.student.findUnique({
     where: { id },
@@ -26,11 +30,6 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           },
         },
       },
-      lessons: {
-        orderBy: { startTime: 'desc' },
-        take: 10,
-        include: { teacher: { select: { firstName: true, lastName: true } } },
-      },
       payments: {
         orderBy: { createdAt: 'desc' },
         take: 10,
@@ -38,9 +37,29 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     },
   })
 
-  // findUnique above is already academyId-scoped by forAcademy(), so this
-  // also correctly 404s if the id belongs to a different academy.
   if (!student) notFound()
+
+  const [upcomingLessons, recentLessons] = await Promise.all([
+    db.lesson.findMany({
+      where: {
+        studentId: id,
+        startTime: { gte: now },
+        status: { in: ['PLANNED', 'POSTPONED'] },
+      },
+      orderBy: { startTime: 'asc' },
+      take: 5,
+      include: { teacher: { select: { firstName: true, lastName: true } } },
+    }),
+    db.lesson.findMany({
+      where: {
+        studentId: id,
+        OR: [{ startTime: { lt: now } }, { status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } }],
+      },
+      orderBy: { startTime: 'desc' },
+      take: 5,
+      include: { teacher: { select: { firstName: true, lastName: true } } },
+    }),
+  ])
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -80,23 +99,19 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-3">Recent Lessons</h3>
-        {student.lessons.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No lessons scheduled yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {student.lessons.map((l) => (
-              <li key={l.id} className="text-sm text-foreground flex justify-between">
-                <span>
-                  {l.subject} with {l.teacher.firstName} {l.teacher.lastName}
-                </span>
-                <span className="text-muted-foreground">{l.startTime.toLocaleDateString()}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <LessonListSection
+        title="Upcoming Lessons"
+        empty="No upcoming lessons."
+        lessons={upcomingLessons}
+        viewAllHref={`/dashboard/lessons?studentId=${id}`}
+      />
+
+      <LessonListSection
+        title="Recent Lessons"
+        empty="No recent lessons."
+        lessons={recentLessons}
+        viewAllHref={`/dashboard/lessons?studentId=${id}`}
+      />
 
       <div className="rounded-2xl border border-border bg-card p-5">
         <h3 className="text-sm font-semibold text-foreground mb-3">Recent Payments</h3>
@@ -115,6 +130,61 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           </ul>
         )}
       </div>
+    </div>
+  )
+}
+
+function LessonListSection({
+  title,
+  empty,
+  lessons,
+  viewAllHref,
+}: {
+  title: string
+  empty: string
+  lessons: Array<{
+    id: string
+    instrument: string
+    startTime: Date
+    endTime: Date
+    status: string
+    teacher: { firstName: string; lastName: string }
+  }>
+  viewAllHref: string
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <Link
+          href={viewAllHref}
+          className="text-xs text-gold hover:underline underline-offset-4 transition-colors shrink-0"
+        >
+          View All Lessons
+        </Link>
+      </div>
+      {lessons.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {lessons.map((l) => (
+            <li key={l.id} className="text-sm text-foreground flex justify-between gap-3">
+              <Link href={`/dashboard/lessons/${l.id}`} className="hover:text-gold transition-colors min-w-0">
+                <span className="font-medium">{l.instrument}</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  with {l.teacher.firstName} {l.teacher.lastName}
+                </span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {LESSON_STATUS_LABELS[l.status as LessonStatusValue] ?? l.status} ·{' '}
+                  {formatTime(l.startTime)}–{formatTime(l.endTime)}
+                </span>
+              </Link>
+              <span className="text-muted-foreground shrink-0">{l.startTime.toLocaleDateString()}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

@@ -222,28 +222,27 @@ model ParentStudent {
 }
 
 model Lesson {
-  id         String       @id @default(cuid())
-  studentId  String
-  teacherId  String
-  subject    String
-  level      String?
-  /// Individual | Group | Trial | Makeup — used for display/color; extensible later
-  lessonType String?      @default("Individual")
-  room       String?
-  startTime  DateTime
-  endTime    DateTime
-  status     LessonStatus @default(SCHEDULED)
-  notes      String?
-  /// Reserved for future recurring-lesson series (null = one-off)
-  seriesId   String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id              String       @id @default(cuid())
+  studentId       String
+  teacherId       String
+  instrument      String
+  level           String?
+  lessonType      LessonType   @default(PRIVATE)
+  room            String?
+  lessonFee       Float?
+  durationMinutes Int?
+  startTime       DateTime
+  endTime         DateTime
+  status          LessonStatus @default(PLANNED)
+  notes           String?
+  /// Reserved for future recurring-lesson series (null = one-off). Not used yet.
+  seriesId        String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
-  // Composite FKs: a Lesson can now ONLY reference a Student/Teacher
-  // from its own academy — enforced by Postgres, not application code.
   student    Student     @relation(fields: [academyId, studentId], references: [academyId, id])
   teacher    Teacher     @relation(fields: [academyId, teacherId], references: [academyId, id])
   attendance Attendance?
@@ -254,6 +253,8 @@ model Lesson {
   @@index([academyId, startTime])
   @@index([academyId, status])
   @@index([academyId, seriesId])
+  @@index([academyId, teacherId, startTime])
+  @@index([academyId, studentId, startTime])
 }
 
 model Attendance {
@@ -367,10 +368,17 @@ enum Role {
 }
 
 enum LessonStatus {
-  SCHEDULED
-  ONGOING
+  PLANNED
   COMPLETED
   CANCELLED
+  POSTPONED
+  NO_SHOW
+}
+
+enum LessonType {
+  PRIVATE
+  GROUP
+  TRIAL
 }
 
 enum AttendanceStatus {

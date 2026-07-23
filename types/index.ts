@@ -1,7 +1,8 @@
 // MuSchool — Shared TypeScript types
 
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT'
-export type LessonStatus = 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
+export type LessonStatus = 'PLANNED' | 'COMPLETED' | 'CANCELLED' | 'POSTPONED' | 'NO_SHOW'
+export type LessonType = 'PRIVATE' | 'GROUP' | 'TRIAL'
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'
 export type HomeworkStatus = 'PENDING' | 'SUBMITTED' | 'GRADED'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
@@ -53,8 +54,12 @@ export interface Lesson {
   id: string
   studentId: string
   teacherId: string
-  subject: string
+  instrument: string
   level?: string | null
+  lessonType: LessonType
+  room?: string | null
+  lessonFee?: number | null
+  durationMinutes?: number | null
   startTime: Date
   endTime: Date
   status: LessonStatus

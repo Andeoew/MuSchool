@@ -1,101 +1,55 @@
-'use client'
+import { getDashboardLessonStats } from '@/app/dashboard/lessons/actions'
+import { DashboardClient } from './dashboard-client'
 
-import { useLocale } from '@/hooks/use-locale'
-import { StatCards } from '@/components/dashboard/stat-cards'
-import { RevenueChart } from '@/components/dashboard/revenue-chart'
-import { AttendanceChart } from '@/components/dashboard/attendance-chart'
-import { TodaysSchedule } from '@/components/dashboard/todays-schedule'
-import { RecentActivity } from '@/components/dashboard/recent-activity'
-import { UpcomingLessons } from '@/components/dashboard/upcoming-lessons'
-import { QuickActions } from '@/components/dashboard/quick-actions'
-import { UpcomingBirthdays } from '@/components/dashboard/upcoming-birthdays'
+export const dynamic = 'force-dynamic'
 
-export default function DashboardPage() {
-  const { t } = useLocale()
-  const d = t.dashboard
+export default async function DashboardPage() {
+  let lessonData: Awaited<ReturnType<typeof getDashboardLessonStats>> | null = null
 
-  // In production these come from Server Actions / SWR via hooks/use-dashboard-stats
-  const today = new Date().toLocaleDateString(
-    'tr-TR',
-    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
-  )
+  try {
+    lessonData = await getDashboardLessonStats()
+  } catch (err) {
+    console.error('Dashboard lesson stats failed:', err)
+  }
+
+  const todaysLessons =
+    lessonData?.todaysLessons.map((l) => ({
+      id: l.id,
+      instrument: l.instrument,
+      status: l.status,
+      startTime: l.startTime.toISOString(),
+      endTime: l.endTime.toISOString(),
+      studentName: `${l.student.firstName} ${l.student.lastName}`,
+      teacherName: `${l.teacher.firstName} ${l.teacher.lastName}`,
+      level: l.level,
+    })) ?? []
+
+  const upcomingLessons =
+    lessonData?.upcomingLessons.map((l) => ({
+      id: l.id,
+      instrument: l.instrument,
+      startTime: l.startTime.toISOString(),
+      studentName: `${l.student.firstName} ${l.student.lastName}`,
+      teacherName: `${l.teacher.firstName} ${l.teacher.lastName}`,
+    })) ?? []
+
+  const recentLessons =
+    lessonData?.recentLessons.map((l) => ({
+      id: l.id,
+      instrument: l.instrument,
+      status: l.status,
+      startTime: l.startTime.toISOString(),
+      studentName: `${l.student.firstName} ${l.student.lastName}`,
+      teacherName: `${l.teacher.firstName} ${l.teacher.lastName}`,
+    })) ?? []
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px]">
-      {/* Welcome row */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-foreground tracking-tight">
-            {d.greeting}, Sarah
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {d.subtitle('MuSchool')}
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold/30 bg-gold-dim shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" aria-hidden="true" />
-          <span className="text-xs font-medium text-gold capitalize">{today}</span>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <StatCards
-        labels={{
-          totalStudents: d.totalStudents,
-          activeTeachers: d.activeTeachers,
-          monthlyRevenue: d.monthlyRevenue,
-          attendanceRate: d.attendanceRate,
-          fromLastMonth: d.fromLastMonth,
-        }}
-      />
-
-      {/* Charts */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <RevenueChart
-          title={d.revenue}
-          subtitle={d.revenueSubtitle}
-          badge={`+8.4% ${d.thisMonth}`}
-        />
-        <AttendanceChart
-          title={d.attendance}
-          subtitle={d.attendanceSubtitle}
-        />
-      </div>
-
-      {/* Schedule + Quick Actions */}
-      <div className="grid lg:grid-cols-[2fr_1fr] gap-4">
-        <TodaysSchedule
-          title={d.todaysSchedule}
-          subtitle={d.todaysScheduleSubtitle}
-          viewCalendarLabel={d.viewCalendar}
-        />
-        <QuickActions
-          title={d.quickActions}
-          labels={{
-            addStudent:    d.addStudent,
-            addLesson:     d.addLesson,
-            addTeacher:    d.addTeacher,
-            recordPayment: d.recordPayment,
-          }}
-        />
-      </div>
-
-      {/* Activity + Upcoming Lessons */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <RecentActivity title={d.recentActivity} />
-        <UpcomingLessons
-          title={d.upcomingLessons}
-          viewAllLabel={d.viewAll}
-        />
-      </div>
-
-      {/* Birthdays — full width on mobile, half on large */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <UpcomingBirthdays
-          title={d.upcomingBirthdays}
-          emptyLabel={d.noUpcomingBirthdays}
-        />
-      </div>
-    </div>
+    <DashboardClient
+      todaysLessons={todaysLessons}
+      upcomingLessons={upcomingLessons}
+      recentLessons={recentLessons}
+      completedToday={lessonData?.completedToday ?? 0}
+      cancelledToday={lessonData?.cancelledToday ?? 0}
+    />
   )
 }

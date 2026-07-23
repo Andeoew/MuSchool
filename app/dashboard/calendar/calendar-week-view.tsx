@@ -17,10 +17,12 @@ import { LessonFormModal, type LessonFormValues } from './lesson-form-modal'
 
 export type CalendarLesson = {
   id: string
-  subject: string
+  instrument: string
   level: string | null
   lessonType: string | null
   room: string | null
+  lessonFee: number | null
+  notes: string | null
   startTime: string // ISO
   endTime: string
   status: string
@@ -41,13 +43,14 @@ function toFormValues(lesson: CalendarLesson): LessonFormValues {
     id: lesson.id,
     studentId: lesson.student.id,
     teacherId: lesson.teacher.id,
-    subject: lesson.subject,
+    instrument: lesson.instrument,
     level: lesson.level,
     lessonType: lesson.lessonType,
     room: lesson.room,
+    lessonFee: lesson.lessonFee,
     startTime: lesson.startTime,
     endTime: lesson.endTime,
-    notes: null,
+    notes: lesson.notes,
     status: lesson.status,
   }
 }
@@ -231,8 +234,6 @@ export function CalendarWeekView({ weekStartKey, lessons }: Props) {
                         const top = Math.max(0, (startHour - CALENDAR_HOURS[0]!) * 64)
                         const height = Math.max(28, (endHour - startHour) * 64)
 
-                        const instrument = lesson.student.instrument ?? lesson.subject
-
                         return (
                           <button
                             key={lesson.id}
@@ -258,7 +259,7 @@ export function CalendarWeekView({ weekStartKey, lessons }: Props) {
                               {lesson.teacher.firstName} {lesson.teacher.lastName}
                             </p>
                             <p className="text-[10px] opacity-80 truncate">
-                              {instrument}
+                              {lesson.instrument}
                               {lesson.lessonType ? ` · ${lesson.lessonType}` : ''}
                               {lesson.room ? ` · ${lesson.room}` : ''}
                             </p>

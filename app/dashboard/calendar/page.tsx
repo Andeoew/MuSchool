@@ -38,10 +38,12 @@ export default async function CalendarPage({ searchParams }: Props) {
 
     const lessons: CalendarLesson[] = rows.map((l) => ({
       id: l.id,
-      subject: l.subject,
+      instrument: l.instrument,
       level: l.level,
       lessonType: l.lessonType,
       room: l.room,
+      lessonFee: l.lessonFee,
+      notes: l.notes,
       startTime: l.startTime.toISOString(),
       endTime: l.endTime.toISOString(),
       status: l.status,
