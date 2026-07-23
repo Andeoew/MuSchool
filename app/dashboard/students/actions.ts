@@ -73,6 +73,7 @@ export async function deleteStudent(id: string): Promise<ActionResult> {
   try {
     await db.student.delete({ where: { id } })
     revalidatePath('/dashboard/students')
+    revalidatePath(`/dashboard/students/${id}`)
     return { success: true, data: undefined }
   } catch (err) {
     if (isNotFoundError(err)) {

@@ -204,7 +204,25 @@ export function StudentsTable({ students }: { students: StudentRow[] }) {
           </table>
         </div>
         {filtered.length === 0 && (
-          <div className="py-16 text-center text-sm text-muted-foreground">No students match your search.</div>
+          <div className="py-16 text-center">
+            {students.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-6">
+                <p className="text-sm font-medium text-foreground">No students yet</p>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Add your first student to start managing enrollments, lessons, and attendance.
+                </p>
+                <button
+                  onClick={() => setModalState({ mode: 'create' })}
+                  className="mt-1 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold text-background text-sm font-semibold shadow-gold hover:brightness-110 transition-all active:scale-95"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Student
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No students match your search.</p>
+            )}
+          </div>
         )}
       </div>
 

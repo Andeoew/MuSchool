@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  X, Music2, LogOut,
+  X, Music2,
   LayoutDashboard, Users, GraduationCap, UsersRound, CalendarDays,
   BookOpenCheck, ClipboardList, FileText, CreditCard, BarChart3,
   Megaphone, Bell, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLocale } from '@/hooks/use-locale'
+import { UserSection } from '@/components/dashboard/user-section'
 
 const NAV_ITEMS = [
   { key: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -102,24 +103,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           })}
         </nav>
 
-        <div className="p-3 border-t border-border flex flex-col gap-1 shrink-0">
-          <div className="flex items-center gap-2.5 px-3 py-2">
-            <div className="w-7 h-7 rounded-full bg-gold flex items-center justify-center text-background text-[10px] font-bold shrink-0">
-              SA
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-foreground truncate">Sarah Admin</p>
-              <p className="text-[10px] text-muted-foreground truncate">sarah@muschool.app</p>
-            </div>
-          </div>
-          <Link
-            href="/login"
-            onClick={onClose}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <LogOut className="w-[15px] h-[15px]" strokeWidth={1.8} />
-            <span>{t.auth.signOut}</span>
-          </Link>
+        <div className="p-3 border-t border-border shrink-0">
+          <UserSection onSignOut={onClose} />
         </div>
       </div>
     </>

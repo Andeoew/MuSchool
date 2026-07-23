@@ -19,10 +19,10 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLocale } from '@/hooks/use-locale'
+import { UserSection } from '@/components/dashboard/user-section'
 
 const NAV_ITEMS = [
   { key: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -117,36 +117,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Bottom section */}
       <div className="p-2 border-t border-border shrink-0 flex flex-col gap-0.5">
-        {/* User */}
-        <div
-          className={cn(
-            'flex items-center gap-2.5 px-2.5 py-2 rounded-lg',
-            collapsed && 'justify-center'
-          )}
-        >
-          <div className="w-7 h-7 rounded-full bg-gold flex items-center justify-center text-background text-[10px] font-bold shrink-0">
-            SA
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-foreground truncate">Sarah Admin</p>
-              <p className="text-[10px] text-muted-foreground truncate">sarah@muschool.app</p>
-            </div>
-          )}
-        </div>
-
-        {/* Logout */}
-        <Link
-          href="/login"
-          title={collapsed ? t.auth.signOut : undefined}
-          className={cn(
-            'flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors',
-            collapsed && 'justify-center'
-          )}
-        >
-          <LogOut className="w-[15px] h-[15px] shrink-0" strokeWidth={1.8} />
-          {!collapsed && <span>{t.auth.signOut}</span>}
-        </Link>
+        <UserSection collapsed={collapsed} />
 
         {/* Collapse toggle */}
         <button

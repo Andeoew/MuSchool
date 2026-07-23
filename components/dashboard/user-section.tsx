@@ -35,7 +35,8 @@ export function UserSection({ collapsed, onSignOut, className }: UserSectionProp
       fetchOptions: {
         onSuccess: () => {
           onSignOut?.()
-          router.push('/login')
+          router.push('/')
+          router.refresh()
         },
       },
     })
