@@ -63,7 +63,11 @@ export function StudentEnrollmentSection({
                 </p>
               </div>
               <span className="text-muted-foreground shrink-0 text-[12px]">
-                {new Date(e.startDate).toLocaleDateString()}
+                {new Date(e.startDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
               </span>
             </li>
           ))}

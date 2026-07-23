@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 
 function formatFee(fee: number | null) {
   if (fee == null) return '—'
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'TRY',
     maximumFractionDigits: 0,
@@ -171,7 +171,9 @@ function LessonSection({
                   {formatTime(l.endTime)}
                 </span>
               </Link>
-              <span className="text-muted-foreground shrink-0">{l.startTime.toLocaleDateString()}</span>
+              <span className="text-muted-foreground shrink-0">
+                {l.startTime.toLocaleDateString('en-US')}
+              </span>
             </li>
           ))}
         </ul>

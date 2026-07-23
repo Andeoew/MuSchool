@@ -15,7 +15,7 @@ export type CourseRow = CourseFormValues & {
 
 function formatFee(fee: number | null) {
   if (fee == null) return '—'
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'TRY',
     maximumFractionDigits: 0,

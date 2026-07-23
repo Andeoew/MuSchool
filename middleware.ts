@@ -9,19 +9,41 @@ function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-function isAdminPath(pathname: string) {
-  return pathname.startsWith('/admin')
+function needsRoleCheck(pathname: string) {
+  return (
+    AUTH_PATHS.includes(pathname) ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/teacher') ||
+    pathname.startsWith('/student')
+  )
 }
 
+/**
+ * Fast optimistic gate:
+ * - Most /dashboard navigations only check cookie presence (no decrypt).
+ * - Role is read from cookie cache only when redirecting from auth pages
+ *   or gating /admin|/teacher|/student routes.
+ */
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request)
   const { pathname } = request.nextUrl
   const isAuthPage = AUTH_PATHS.includes(pathname)
   const isProtected = isProtectedPath(pathname)
 
+  if (isProtected && !sessionCookie) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // Fast path: authenticated dashboard browsing — no cookie decrypt.
+  if (sessionCookie && pathname.startsWith('/dashboard') && !needsRoleCheck(pathname)) {
+    return NextResponse.next()
+  }
+
   let role: string | undefined
 
-  if (sessionCookie && process.env.BETTER_AUTH_SECRET) {
+  if (sessionCookie && needsRoleCheck(pathname) && process.env.BETTER_AUTH_SECRET) {
     try {
       const isSecure = request.nextUrl.protocol === 'https:'
       const session = await getCookieCache(request, {
@@ -30,26 +52,17 @@ export async function middleware(request: NextRequest) {
       })
       role = (session?.user as { role?: string } | undefined)?.role
     } catch {
-      // Cookie cache is optimistic — never block navigation if decrypt fails.
       role = undefined
     }
   }
 
   const dashboardPath = role ? getDashboardPathForRole(role) : '/dashboard'
 
-  if (isProtected && !sessionCookie) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
   if (isAuthPage && sessionCookie) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  // Only enforce role gates when role is known from cookie cache.
-  // Missing role falls through; server layouts/actions remain authoritative.
-  if (sessionCookie && role && isAdminPath(pathname) && !isAdminRole(role)) {
+  if (sessionCookie && role && pathname.startsWith('/admin') && !isAdminRole(role)) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 

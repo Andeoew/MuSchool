@@ -171,7 +171,7 @@ export function Pricing() {
                 )}
                 {plan.monthlyPrice !== null && isYearly && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Billed ${(plan.yearlyPrice! * 12).toLocaleString()} annually
+                    Billed ${(plan.yearlyPrice! * 12).toLocaleString('en-US')} annually
                   </p>
                 )}
               </div>

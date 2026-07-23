@@ -54,7 +54,7 @@ export default function PaymentsPage() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Collected</p>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground">${totalRevenue.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-foreground">${totalRevenue.toLocaleString('en-US')}</p>
           <span className="text-[11px] text-emerald-500">This month</span>
         </div>
         <div className="flex flex-col gap-3 p-5 rounded-2xl border border-border bg-card">
@@ -62,7 +62,7 @@ export default function PaymentsPage() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Outstanding</p>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-bold text-foreground">${pendingAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-foreground">${pendingAmount.toLocaleString('en-US')}</p>
           <span className="text-[11px] text-amber-500">Pending collection</span>
         </div>
         <div className="flex flex-col gap-3 p-5 rounded-2xl border border-border bg-card">

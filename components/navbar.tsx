@@ -29,7 +29,9 @@ export function Navbar() {
   }, [])
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
-  const isLoggedIn = Boolean(session?.user)
+  // Until mounted, render logged-out CTAs so SSR and first client paint match.
+  const ready = mounted && !isPending
+  const isLoggedIn = ready && Boolean(session?.user)
   const role = (session?.user as { role?: string } | undefined)?.role
   const dashboardHref = getDashboardPathForRole(role ?? 'ADMIN')
 
@@ -39,7 +41,7 @@ export function Navbar() {
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         scrolled
           ? 'bg-background/80 backdrop-blur-xl border-b border-border shadow-sm'
-          : 'bg-transparent'
+          : 'bg-transparent',
       )}
     >
       <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between" aria-label="Main navigation">
@@ -72,18 +74,17 @@ export function Navbar() {
             className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-150"
           >
             {mounted ? (
-              theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />
+              theme === 'dark' ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )
             ) : (
               <span className="w-4 h-4 block" />
             )}
           </button>
 
-          {isPending ? (
-            <span
-              className="inline-block h-9 w-28 rounded-lg bg-muted animate-pulse"
-              aria-hidden="true"
-            />
-          ) : isLoggedIn ? (
+          {isLoggedIn ? (
             <a
               href={dashboardHref}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gold text-background text-sm font-medium shadow-gold hover:brightness-110 transition-all duration-150"
@@ -121,7 +122,7 @@ export function Navbar() {
       <div
         className={cn(
           'md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-xl border-b border-border',
-          mobileOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          mobileOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0',
         )}
       >
         <div className="px-6 py-4 flex flex-col gap-1">
@@ -136,9 +137,7 @@ export function Navbar() {
             </a>
           ))}
           <div className="pt-3 mt-2 border-t border-border flex flex-col gap-2">
-            {isPending ? (
-              <span className="h-10 rounded-lg bg-muted animate-pulse" aria-hidden="true" />
-            ) : isLoggedIn ? (
+            {isLoggedIn ? (
               <a
                 href={dashboardHref}
                 className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-gold text-background text-sm font-medium"

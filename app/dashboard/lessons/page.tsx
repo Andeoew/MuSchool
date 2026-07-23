@@ -53,7 +53,7 @@ export default async function LessonsPage({
     const db = forAcademy(academyId)
 
     const [lessons, teachers, students, courses] = await Promise.all([
-      listLessons(filters),
+      listLessons(filters, academyId),
       db.teacher.findMany({
         where: { isActive: true },
         orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],

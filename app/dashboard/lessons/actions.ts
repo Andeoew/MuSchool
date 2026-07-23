@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { forAcademy } from '@/lib/tenant-db'
-import { requireAcademyId } from '@/lib/session'
+import { requireAcademyId, requireAdminSession } from '@/lib/session'
 import {
   lessonInputSchema,
   lessonUpdateSchema,
@@ -73,8 +73,11 @@ function endOfDay(d: Date) {
   return x
 }
 
-export async function listLessons(filters: LessonListFilters = {}) {
-  const { academyId } = await requireAcademyId()
+export async function listLessons(
+  filters: LessonListFilters = {},
+  academyIdOverride?: string,
+) {
+  const academyId = academyIdOverride ?? (await requireAcademyId()).academyId
   const db = forAcademy(academyId)
 
   const where: Prisma.LessonWhereInput = {}
@@ -132,60 +135,6 @@ export async function listLessons(filters: LessonListFilters = {}) {
   })
 }
 
-export async function listLessonsInRange(
-  start: Date,
-  end: Date,
-  filters: {
-    teacherId?: string
-    studentId?: string
-    courseId?: string
-    instrument?: string
-    status?: LessonStatusValue | 'ALL'
-    search?: string
-  } = {},
-) {
-  const { academyId } = await requireAcademyId()
-  const db = forAcademy(academyId)
-
-  const where: Prisma.LessonWhereInput = {
-    startTime: { gte: start, lt: end },
-  }
-
-  if (filters.status && filters.status !== 'ALL') {
-    where.status = filters.status
-  } else {
-    where.status = { not: 'CANCELLED' }
-  }
-
-  const enrollmentWhere: Prisma.EnrollmentWhereInput = {}
-  if (filters.teacherId) enrollmentWhere.teacherId = filters.teacherId
-  if (filters.studentId) enrollmentWhere.studentId = filters.studentId
-  if (filters.courseId) enrollmentWhere.courseId = filters.courseId
-  if (filters.instrument) enrollmentWhere.course = { instrument: filters.instrument }
-  if (Object.keys(enrollmentWhere).length) where.enrollment = enrollmentWhere
-
-  if (filters.search?.trim()) {
-    const q = filters.search.trim()
-    where.AND = [
-      {
-        OR: [
-          { enrollment: { student: { firstName: { contains: q, mode: 'insensitive' } } } },
-          { enrollment: { student: { lastName: { contains: q, mode: 'insensitive' } } } },
-          { enrollment: { teacher: { firstName: { contains: q, mode: 'insensitive' } } } },
-          { enrollment: { teacher: { lastName: { contains: q, mode: 'insensitive' } } } },
-          { enrollment: { course: { name: { contains: q, mode: 'insensitive' } } } },
-        ],
-      },
-    ]
-  }
-
-  return db.lesson.findMany({
-    where,
-    orderBy: { startTime: 'asc' },
-    include: lessonInclude,
-  })
-}
-
 export async function getLesson(id: string) {
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
@@ -210,6 +159,7 @@ export async function createLesson(input: unknown): Promise<ActionResult<{ id: s
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
@@ -257,6 +207,7 @@ export async function updateLesson(id: string, input: unknown): Promise<ActionRe
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
@@ -319,6 +270,7 @@ export async function updateLessonTime(id: string, input: unknown): Promise<Acti
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const { startTime, endTime } = parsed.data
@@ -346,6 +298,7 @@ export async function setLessonStatus(
   status: LessonStatusValue,
   extras?: unknown,
 ): Promise<ActionResult> {
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 
@@ -384,6 +337,7 @@ export async function setLessonStatus(
 }
 
 export async function deleteLesson(id: string): Promise<ActionResult> {
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 
@@ -464,29 +418,4 @@ export async function getDashboardLessonStats() {
     ])
 
   return { todaysLessons, upcomingLessons, completedToday, cancelledToday, recentLessons }
-}
-
-export async function getCalendarFilterOptions() {
-  const { academyId } = await requireAcademyId()
-  const db = forAcademy(academyId)
-
-  const [teachers, students, courses] = await Promise.all([
-    db.teacher.findMany({
-      where: { isActive: true },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      select: { id: true, firstName: true, lastName: true },
-    }),
-    db.student.findMany({
-      where: { isActive: true },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      select: { id: true, firstName: true, lastName: true },
-    }),
-    db.course.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, instrument: true, color: true },
-    }),
-  ])
-
-  return { teachers, students, courses }
 }

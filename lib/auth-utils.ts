@@ -24,16 +24,39 @@ export function resolvePostAuthRedirect(
   role: string | undefined | null,
   callbackUrl?: string | null,
 ): string {
+  const resolvedRole = role ?? 'ADMIN'
+  const home = getDashboardPathForRole(resolvedRole)
+
   if (
-    callbackUrl &&
-    callbackUrl.startsWith('/') &&
-    !callbackUrl.startsWith('//') &&
-    !callbackUrl.startsWith('/login') &&
-    !callbackUrl.startsWith('/register')
+    !callbackUrl ||
+    !callbackUrl.startsWith('/') ||
+    callbackUrl.startsWith('//') ||
+    callbackUrl.startsWith('/login') ||
+    callbackUrl.startsWith('/register')
   ) {
-    return callbackUrl
+    return home
   }
-  return getDashboardPathForRole(role ?? 'ADMIN')
+
+  // Never send non-admins into the admin /dashboard shell via callbackUrl.
+  if (
+    !isAdminRole(resolvedRole) &&
+    (callbackUrl === '/dashboard' || callbackUrl.startsWith('/dashboard/'))
+  ) {
+    return home
+  }
+
+  if (resolvedRole === 'TEACHER' && callbackUrl.startsWith('/student')) {
+    return home
+  }
+
+  if (
+    (resolvedRole === 'PARENT' || resolvedRole === 'STUDENT') &&
+    callbackUrl.startsWith('/teacher')
+  ) {
+    return home
+  }
+
+  return callbackUrl
 }
 
 export const INSTRUMENT_OPTIONS = [

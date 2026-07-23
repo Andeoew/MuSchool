@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import { CheckCircle2, XCircle, CalendarDays, History } from 'lucide-react'
-import { formatTime } from '@/lib/calendar'
-import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
 export type RecentLessonItem = {
   id: string
   instrument: string
   courseName?: string
   status: string
-  startTime: string
+  statusLabel: string
+  dateLabel: string
+  timeLabel: string
   studentName: string
   teacherName: string
 }
@@ -63,33 +63,27 @@ export function LessonStatsWidgets({ completedToday, cancelledToday, recentLesso
           <p className="text-sm text-muted-foreground py-2">No past lessons yet.</p>
         ) : (
           <ul className="flex flex-col divide-y divide-border">
-            {recentLessons.map((l) => {
-              const start = new Date(l.startTime)
-              return (
-                <li key={l.id}>
-                  <Link
-                    href={`/dashboard/lessons/${l.id}`}
-                    className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-foreground truncate">{l.studentName}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {l.courseName ?? l.instrument} · {l.teacherName}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[11px] text-muted-foreground">
-                        {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ·{' '}
-                        {formatTime(start)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {LESSON_STATUS_LABELS[l.status as LessonStatusValue] ?? l.status}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              )
-            })}
+            {recentLessons.map((l) => (
+              <li key={l.id}>
+                <Link
+                  href={`/dashboard/lessons/${l.id}`}
+                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-foreground truncate">{l.studentName}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {l.courseName ?? l.instrument} · {l.teacherName}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[11px] text-muted-foreground">
+                      {l.dateLabel} · {l.timeLabel}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{l.statusLabel}</p>
+                  </div>
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </div>

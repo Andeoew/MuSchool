@@ -1,29 +1,22 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { requireAcademyId } from '@/lib/session'
+import { getDashboardPathForRole, isAdminRole } from '@/lib/auth-utils'
+import { DashboardShell } from './dashboard-shell'
 
-import { useState } from 'react'
-import { Sidebar } from '@/components/dashboard/sidebar'
-import { TopNav } from '@/components/dashboard/topnav'
-import { MobileNav } from '@/components/dashboard/mobile-nav'
+/**
+ * Admin dashboard shell. Non-admins are redirected to their role home.
+ * Cookie-only middleware keeps in-dashboard hops fast; this gate runs once
+ * per layout render on the server.
+ */
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  try {
+    const { role } = await requireAcademyId()
+    if (!isAdminRole(role)) {
+      redirect(getDashboardPathForRole(role))
+    }
+  } catch {
+    redirect('/login')
+  }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop sidebar */}
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-
-      {/* Mobile drawer */}
-      <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
-
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopNav onMobileMenuToggle={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  )
+  return <DashboardShell>{children}</DashboardShell>
 }

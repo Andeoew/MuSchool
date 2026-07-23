@@ -4,20 +4,56 @@ import { requireAcademyId } from '@/lib/session'
 export const dynamic = 'force-dynamic'
 
 export default async function StudentDashboardPage() {
-  const { academyId, role } = await requireAcademyId()
+  const { academyId, userId, role } = await requireAcademyId()
   const db = forAcademy(academyId)
 
-  const students = await db.student.findMany({
-    where: { isActive: true },
-    take: 5,
-    orderBy: { enrolledAt: 'desc' },
-    select: {
-      firstName: true,
-      lastName: true,
-      instrument: true,
-      level: true,
-    },
-  })
+  let students: Array<{
+    firstName: string
+    lastName: string
+    instrument: string | null
+    level: string | null
+  }> = []
+
+  if (role === 'PARENT') {
+    const parent = await db.parent.findFirst({
+      where: { userId },
+      select: { id: true },
+    })
+    if (parent) {
+      const links = await db.parentStudent.findMany({
+        where: { parentId: parent.id },
+        take: 20,
+        include: {
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              instrument: true,
+              level: true,
+              isActive: true,
+            },
+          },
+        },
+      })
+      students = links
+        .filter((l) => l.student.isActive)
+        .map((l) => l.student)
+    }
+  } else if (role === 'STUDENT') {
+    const self = await db.student.findFirst({
+      where: { userId, isActive: true },
+      select: {
+        firstName: true,
+        lastName: true,
+        instrument: true,
+        level: true,
+      },
+    })
+    if (self) students = [self]
+  }
+
+  const listTitle =
+    role === 'PARENT' ? 'Bağlı Öğrenciler' : role === 'STUDENT' ? 'Profiliniz' : 'Öğrenciler'
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -34,10 +70,14 @@ export default async function StudentDashboardPage() {
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">Akademi Öğrencileri</h3>
+          <h3 className="text-sm font-semibold text-foreground">{listTitle}</h3>
         </div>
         {students.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted-foreground">Henüz kayıtlı öğrenci yok.</p>
+          <p className="px-5 py-8 text-sm text-muted-foreground">
+            {role === 'PARENT'
+              ? 'Henüz bağlı öğrenci yok.'
+              : 'Öğrenci profili bulunamadı.'}
+          </p>
         ) : (
           <ul className="divide-y divide-border">
             {students.map((student) => (
@@ -46,7 +86,8 @@ export default async function StudentDashboardPage() {
                   {student.firstName} {student.lastName}
                 </p>
                 <p className="text-muted-foreground text-[12px]">
-                  {[student.instrument, student.level].filter(Boolean).join(' · ') || 'Branş belirtilmemiş'}
+                  {[student.instrument, student.level].filter(Boolean).join(' · ') ||
+                    'Branş belirtilmemiş'}
                 </p>
               </li>
             ))}

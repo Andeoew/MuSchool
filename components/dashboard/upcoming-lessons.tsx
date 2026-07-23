@@ -1,13 +1,13 @@
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import { formatTime } from '@/lib/calendar'
 
 export type UpcomingLessonItem = {
   id: string
   instrument: string
   courseName: string
   courseColor: string
-  startTime: string
+  /** Preformatted on the server */
+  timeLabel: string
+  dateLabel: string
   studentName: string
   teacherName: string
 }
@@ -35,41 +35,32 @@ export function UpcomingLessons({ title, viewAllLabel, lessons }: UpcomingLesson
         <p className="text-sm text-muted-foreground py-4">No upcoming lessons this week.</p>
       ) : (
         <ul role="list" className="flex flex-col divide-y divide-border">
-          {lessons.map((item) => {
-            const start = new Date(item.startTime)
-            return (
-              <li key={item.id}>
-                <Link
-                  href={`/dashboard/lessons/${item.id}`}
-                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90 transition-opacity"
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: item.courseColor }}
-                    aria-hidden="true"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-foreground truncate">{item.studentName}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {item.courseName} &middot; {item.teacherName}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[11px] font-semibold text-foreground tabular-nums">
-                      {formatTime(start)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {start.toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </Link>
-              </li>
-            )
-          })}
+          {lessons.map((item) => (
+            <li key={item.id}>
+              <Link
+                href={`/dashboard/lessons/${item.id}`}
+                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90 transition-opacity"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: item.courseColor }}
+                  aria-hidden="true"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-foreground truncate">{item.studentName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {item.courseName} &middot; {item.teacherName}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[11px] font-semibold text-foreground tabular-nums">
+                    {item.timeLabel}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{item.dateLabel}</p>
+                </div>
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </div>

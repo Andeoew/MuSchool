@@ -91,6 +91,7 @@ export async function createStudent(
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const { parent: parentInput, createLoginAccount, ...studentData } = parsed.data
 
@@ -263,6 +264,7 @@ export async function updateStudent(id: string, input: unknown): Promise<ActionR
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 
@@ -294,6 +296,7 @@ export async function updateStudent(id: string, input: unknown): Promise<ActionR
 }
 
 export async function deleteStudent(id: string): Promise<ActionResult> {
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 

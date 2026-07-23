@@ -21,6 +21,7 @@ type Props = {
   completedToday: number
   cancelledToday: number
   todayCalendarHref: string
+  todayLabel: string
 }
 
 export function DashboardClient({
@@ -30,16 +31,10 @@ export function DashboardClient({
   completedToday,
   cancelledToday,
   todayCalendarHref,
+  todayLabel,
 }: Props) {
   const { t } = useLocale()
   const d = t.dashboard
-
-  const today = new Date().toLocaleDateString('tr-TR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
@@ -50,7 +45,9 @@ export function DashboardClient({
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold/30 bg-gold-dim shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" aria-hidden="true" />
-          <span className="text-xs font-medium text-gold capitalize">{today}</span>
+          <span className="text-xs font-medium text-gold capitalize" suppressHydrationWarning>
+            {todayLabel}
+          </span>
         </div>
       </div>
 

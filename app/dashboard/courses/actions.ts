@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { forAcademy } from '@/lib/tenant-db'
-import { requireAcademyId } from '@/lib/session'
+import { requireAcademyId, requireAdminSession } from '@/lib/session'
 import { courseInputSchema, courseUpdateSchema } from '@/lib/validations/course'
 import {
   ActionResult,
@@ -157,6 +157,7 @@ export async function createCourse(input: unknown): Promise<ActionResult<{ id: s
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
@@ -195,6 +196,7 @@ export async function updateCourse(id: string, input: unknown): Promise<ActionRe
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
@@ -222,6 +224,7 @@ export async function updateCourse(id: string, input: unknown): Promise<ActionRe
 }
 
 export async function deleteCourse(id: string): Promise<ActionResult> {
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
 

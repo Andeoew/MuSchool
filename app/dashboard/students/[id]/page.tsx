@@ -228,7 +228,9 @@ function LessonListSection({
                   {formatTime(l.endTime)}
                 </span>
               </Link>
-              <span className="text-muted-foreground shrink-0">{l.startTime.toLocaleDateString()}</span>
+              <span className="text-muted-foreground shrink-0">
+                {l.startTime.toLocaleDateString('en-US')}
+              </span>
             </li>
           ))}
         </ul>

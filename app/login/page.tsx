@@ -58,8 +58,7 @@ function LoginPageContent() {
       }
 
       const role =
-        (result.data as { user?: { role?: string } } | undefined)?.user?.role ??
-        (await authClient.getSession()).data?.user?.role
+        (result.data as { user?: { role?: string } } | undefined)?.user?.role ?? 'ADMIN'
 
       router.push(resolvePostAuthRedirect(role, searchParams.get('callbackUrl')))
       router.refresh()

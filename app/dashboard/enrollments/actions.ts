@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { forAcademy } from '@/lib/tenant-db'
-import { requireAcademyId } from '@/lib/session'
+import { requireAcademyId, requireAdminSession } from '@/lib/session'
 import { enrollmentInputSchema, enrollmentUpdateSchema } from '@/lib/validations/enrollment'
 import {
   ActionResult,
@@ -31,6 +31,7 @@ export async function createEnrollment(input: unknown): Promise<ActionResult<{ i
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
@@ -82,6 +83,7 @@ export async function updateEnrollment(id: string, input: unknown): Promise<Acti
     }
   }
 
+  await requireAdminSession()
   const { academyId } = await requireAcademyId()
   const db = forAcademy(academyId)
   const data = parsed.data
