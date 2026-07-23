@@ -1,16 +1,14 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { prismaBase } from "./tenant-prisma";
+import { prisma } from "./db";
 
 /**
- * IMPORTANT: this uses the raw, tenant-UNSCOPED prismaBase client.
- * That's correct here — Better Auth needs to read/write User, Session,
- * Account and Verification rows before a request is tied to a specific
- * academy (e.g. during login, before we know who the user is yet).
- * Never copy this pattern into regular app code — use forAcademy() there.
+ * IMPORTANT: uses the shared, tenant-UNSCOPED `prisma` singleton from lib/db.
+ * Better Auth must read/write User, Session, Account and Verification before
+ * a request is tied to an academy. App domain code must use forAcademy().
  */
 export const auth = betterAuth({
-  database: prismaAdapter(prismaBase, {
+  database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
 

@@ -31,9 +31,10 @@ export function Navbar() {
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
   // Until mounted, render logged-out CTAs so SSR and first client paint match.
   const ready = mounted && !isPending
-  const isLoggedIn = ready && Boolean(session?.user)
   const role = (session?.user as { role?: string } | undefined)?.role
-  const dashboardHref = getDashboardPathForRole(role ?? 'ADMIN')
+  // Require a real role before treating the user as logged-in for CTAs.
+  const isLoggedIn = ready && Boolean(session?.user) && Boolean(role)
+  const dashboardHref = role ? getDashboardPathForRole(role) : '/login'
 
   return (
     <header

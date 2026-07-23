@@ -57,8 +57,11 @@ function LoginPageContent() {
         return
       }
 
-      const role =
-        (result.data as { user?: { role?: string } } | undefined)?.user?.role ?? 'ADMIN'
+      const role = (result.data as { user?: { role?: string } } | undefined)?.user?.role
+      if (!role) {
+        setError(t.auth.invalidCredentials)
+        return
+      }
 
       router.push(resolvePostAuthRedirect(role, searchParams.get('callbackUrl')))
       router.refresh()

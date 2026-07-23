@@ -77,7 +77,12 @@ export async function listLessons(
   filters: LessonListFilters = {},
   academyIdOverride?: string,
 ) {
-  const academyId = academyIdOverride ?? (await requireAcademyId()).academyId
+  // Always authenticate; override may only match the caller's own academy.
+  const { academyId: sessionAcademyId } = await requireAcademyId()
+  if (academyIdOverride && academyIdOverride !== sessionAcademyId) {
+    throw new Error('FORBIDDEN')
+  }
+  const academyId = academyIdOverride ?? sessionAcademyId
   const db = forAcademy(academyId)
 
   const where: Prisma.LessonWhereInput = {}

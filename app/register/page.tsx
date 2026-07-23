@@ -67,8 +67,11 @@ export default function RegisterPage() {
         return
       }
 
-      const role =
-        (signInResult.data as { user?: { role?: string } } | undefined)?.user?.role ?? 'ADMIN'
+      const role = (signInResult.data as { user?: { role?: string } } | undefined)?.user?.role
+      if (!role) {
+        setError('Kayıt oluştu ama oturum rolü alınamadı, lütfen giriş sayfasından dene.')
+        return
+      }
       router.push(resolvePostAuthRedirect(role))
       router.refresh()
     } catch (err) {

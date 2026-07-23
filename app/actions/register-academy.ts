@@ -1,6 +1,6 @@
 "use server";
 
-import { prismaBase } from "@/lib/tenant-prisma";
+import { prismaBase } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import {
   RegisterAcademySchema,
@@ -11,7 +11,7 @@ import {
  * Creates a brand-new Academy (tenant) plus its first ADMIN user in one flow.
  * This is intentionally the ONLY place in the app that creates an Academy
  * without an existing academyId to scope against — every other write must
- * go through forAcademy(academyId) from lib/tenant-prisma.ts.
+ * go through forAcademy(academyId) from lib/tenant-db.ts.
  */
 export async function registerAcademy(input: RegisterAcademyInput) {
   const parsed = RegisterAcademySchema.safeParse(input);

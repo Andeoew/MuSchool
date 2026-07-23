@@ -45,7 +45,7 @@ export function DashboardClient({
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold/30 bg-gold-dim shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" aria-hidden="true" />
-          <span className="text-xs font-medium text-gold capitalize" suppressHydrationWarning>
+          <span className="text-xs font-medium text-gold capitalize">
             {todayLabel}
           </span>
         </div>

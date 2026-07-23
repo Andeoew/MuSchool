@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { forAcademy } from '@/lib/tenant-db'
 import { withAcademyTransaction } from '@/lib/tenant-transaction'
-import { prismaBase } from '@/lib/tenant-prisma'
+import { prismaBase } from '@/lib/db'
 import { requireAcademyId, requireAdminSession } from '@/lib/session'
 import {
   provisionUser,

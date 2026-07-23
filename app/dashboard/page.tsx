@@ -1,6 +1,7 @@
 import { getDashboardLessonStats } from '@/app/dashboard/lessons/actions'
 import { DashboardClient } from './dashboard-client'
-import { formatDateMedium, formatTime, toDateKey } from '@/lib/calendar'
+import { toDateKey } from '@/lib/calendar'
+import { formatDateLong, formatDateMedium, formatMonthDay, formatTime } from '@/lib/format-date'
 import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
 export const dynamic = 'force-dynamic'
@@ -71,19 +72,14 @@ export default async function DashboardPage() {
       courseName: l.enrollment.course.name,
       status: l.status,
       statusLabel: LESSON_STATUS_LABELS[l.status as LessonStatusValue] ?? l.status,
-      dateLabel: l.startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      dateLabel: formatMonthDay(l.startTime),
       timeLabel: formatTime(l.startTime),
       studentName: `${l.enrollment.student.firstName} ${l.enrollment.student.lastName}`,
       teacherName: `${l.enrollment.teacher.firstName} ${l.enrollment.teacher.lastName}`,
     })) ?? []
 
   const todayCalendarHref = `/dashboard/calendar?week=${toDateKey(new Date())}`
-  const todayLabel = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  const todayLabel = formatDateLong(new Date())
 
   return (
     <DashboardClient

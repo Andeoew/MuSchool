@@ -24,8 +24,10 @@ export function resolvePostAuthRedirect(
   role: string | undefined | null,
   callbackUrl?: string | null,
 ): string {
-  const resolvedRole = role ?? 'ADMIN'
-  const home = getDashboardPathForRole(resolvedRole)
+  // No role → do not default to ADMIN; send back through login.
+  if (!role) return '/login'
+
+  const home = getDashboardPathForRole(role)
 
   if (
     !callbackUrl ||
@@ -39,18 +41,18 @@ export function resolvePostAuthRedirect(
 
   // Never send non-admins into the admin /dashboard shell via callbackUrl.
   if (
-    !isAdminRole(resolvedRole) &&
+    !isAdminRole(role) &&
     (callbackUrl === '/dashboard' || callbackUrl.startsWith('/dashboard/'))
   ) {
     return home
   }
 
-  if (resolvedRole === 'TEACHER' && callbackUrl.startsWith('/student')) {
+  if (role === 'TEACHER' && callbackUrl.startsWith('/student')) {
     return home
   }
 
   if (
-    (resolvedRole === 'PARENT' || resolvedRole === 'STUDENT') &&
+    (role === 'PARENT' || role === 'STUDENT') &&
     callbackUrl.startsWith('/teacher')
   ) {
     return home

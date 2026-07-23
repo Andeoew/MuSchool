@@ -56,29 +56,28 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const dashboardPath = role ? getDashboardPathForRole(role) : '/dashboard'
+  // Auth pages: only bounce away when we know the role from cookie cache.
+  // If role is missing (cache miss / decrypt fail), let the page render so
+  // the client can establish a fresh session instead of a wrong redirect.
+  if (isAuthPage && sessionCookie && role) {
+    return NextResponse.redirect(new URL(getDashboardPathForRole(role), request.url))
+  }
 
-  if (isAuthPage && sessionCookie) {
+  if (!sessionCookie || !role) {
+    return NextResponse.next()
+  }
+
+  const dashboardPath = getDashboardPathForRole(role)
+
+  if (pathname.startsWith('/admin') && !isAdminRole(role)) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  if (sessionCookie && role && pathname.startsWith('/admin') && !isAdminRole(role)) {
+  if (pathname.startsWith('/teacher') && role !== 'TEACHER' && !isAdminRole(role)) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
   if (
-    sessionCookie &&
-    role &&
-    pathname.startsWith('/teacher') &&
-    role !== 'TEACHER' &&
-    !isAdminRole(role)
-  ) {
-    return NextResponse.redirect(new URL(dashboardPath, request.url))
-  }
-
-  if (
-    sessionCookie &&
-    role &&
     pathname.startsWith('/student') &&
     role !== 'PARENT' &&
     role !== 'STUDENT' &&

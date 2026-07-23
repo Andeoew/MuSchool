@@ -1,6 +1,6 @@
 import { hashPassword } from 'better-auth/crypto'
 import { auth } from '@/lib/auth'
-import { prismaBase } from '@/lib/tenant-prisma'
+import { prismaBase } from '@/lib/db'
 import { generateTempPassword } from '@/lib/password'
 
 export type ProvisionRole = 'TEACHER' | 'PARENT' | 'STUDENT'

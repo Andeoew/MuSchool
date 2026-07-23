@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { getCourse } from '../actions'
 import { CourseDetailActions } from './course-detail-actions'
 import { formatTime } from '@/lib/calendar'
+import { formatDateShort } from '@/lib/format-date'
 import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 import { ENROLLMENT_STATUS_LABELS, type EnrollmentStatusValue } from '@/lib/validations/enrollment'
 import { cn } from '@/lib/utils'
@@ -172,7 +173,7 @@ function LessonSection({
                 </span>
               </Link>
               <span className="text-muted-foreground shrink-0">
-                {l.startTime.toLocaleDateString('en-US')}
+                {formatDateShort(l.startTime)}
               </span>
             </li>
           ))}

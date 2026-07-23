@@ -4,6 +4,7 @@ import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
 import { TeacherDetailActions } from './teacher-detail-actions'
 import { formatTime, startOfWeek, endOfWeek } from '@/lib/calendar'
+import { formatDateShort } from '@/lib/format-date'
 import { LESSON_STATUS_LABELS, type LessonStatusValue } from '@/lib/validations/lesson'
 
 export const dynamic = 'force-dynamic'
@@ -228,7 +229,7 @@ function LessonListSection({
                 </span>
               </Link>
               <span className="text-muted-foreground shrink-0">
-                {l.startTime.toLocaleDateString('en-US')}
+                {formatDateShort(l.startTime)}
               </span>
             </li>
           ))}

@@ -1,5 +1,6 @@
 import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
+import { formatMonthYear } from '@/lib/format-date'
 import { TeachersTable, type TeacherRow } from './teachers-table'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ export default async function TeachersPage() {
       instruments: t.instruments,
       isActive: t.isActive,
       hasLogin: Boolean(t.userId),
-      hiredAt: t.hiredAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      hiredAt: formatMonthYear(t.hiredAt),
     }))
 
     return <TeachersTable teachers={rows} />

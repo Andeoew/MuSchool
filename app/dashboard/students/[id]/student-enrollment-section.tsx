@@ -9,6 +9,7 @@ import {
   ENROLLMENT_STATUS_LABELS,
   type EnrollmentStatusValue,
 } from '@/lib/validations/enrollment'
+import { formatDateShort } from '@/lib/format-date'
 
 type EnrollmentRow = {
   id: string
@@ -63,11 +64,7 @@ export function StudentEnrollmentSection({
                 </p>
               </div>
               <span className="text-muted-foreground shrink-0 text-[12px]">
-                {new Date(e.startDate).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+                {formatDateShort(new Date(e.startDate))}
               </span>
             </li>
           ))}

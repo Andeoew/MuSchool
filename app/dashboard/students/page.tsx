@@ -1,5 +1,6 @@
 import { forAcademy } from '@/lib/tenant-db'
 import { requireAcademyId } from '@/lib/session'
+import { formatMonthYear } from '@/lib/format-date'
 import { StudentsTable, type StudentRow } from './students-table'
 
 // Always fetch fresh — student rosters change often and this is an
@@ -36,7 +37,7 @@ export default async function StudentsPage() {
         ? `${s.enrollments[0].teacher.firstName} ${s.enrollments[0].teacher.lastName}`
         : null,
       isActive: s.isActive,
-      joined: s.enrolledAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      joined: formatMonthYear(s.enrolledAt),
     }))
 
     return <StudentsTable students={rows} />
