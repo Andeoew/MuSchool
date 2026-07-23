@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserPlus } from 'lucide-react'
+import { Link2, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { deleteParent } from '@/actions/parent'
 import { ParentFormModal } from './parent-form-modal'
+import { ParentEditModal } from './parent-edit-modal'
+import { ParentLinkModal } from './parent-link-modal'
 
 export type ParentRow = {
   id: string
@@ -22,7 +25,27 @@ export type ParentRow = {
 
 export function ParentsTable({ parents }: { parents: ParentRow[] }) {
   const router = useRouter()
-  const [modalOpen, setModalOpen] = useState(false)
+  const [, startTransition] = useTransition()
+  const [createOpen, setCreateOpen] = useState(false)
+  const [editing, setEditing] = useState<ParentRow | null>(null)
+  const [linking, setLinking] = useState<ParentRow | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  function handleDelete(parent: ParentRow) {
+    if (!confirm(`Delete ${parent.firstName} ${parent.lastName}? Linked student relationships will be removed.`)) {
+      return
+    }
+    setDeletingId(parent.id)
+    startTransition(async () => {
+      const result = await deleteParent(parent.id)
+      setDeletingId(null)
+      if (!result.success) {
+        alert(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
@@ -32,9 +55,12 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
           <p className="text-sm text-muted-foreground mt-0.5">
             {parents.length} veli &bull; {parents.reduce((sum, p) => sum + p.students.length, 0)} öğrenci eşleşmesi
           </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Primary registration happens with the student. Use this page to manage and link parents.
+          </p>
         </div>
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={() => setCreateOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold text-background text-sm font-semibold shadow-gold hover:brightness-110 transition-all active:scale-95 self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
@@ -44,7 +70,13 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
 
       <div className="grid gap-4">
         {parents.map((parent) => (
-          <article key={parent.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+          <article
+            key={parent.id}
+            className={cn(
+              'rounded-2xl border border-border bg-card overflow-hidden',
+              deletingId === parent.id && 'opacity-50 pointer-events-none'
+            )}
+          >
             <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
@@ -55,9 +87,35 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
                   {parent.phone ? ` · ${parent.phone}` : ''}
                 </p>
               </div>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-gold-dim text-gold border border-gold/30 self-start">
-                {parent.students.length} öğrenci
-              </span>
+              <div className="flex items-center gap-2 self-start">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-gold-dim text-gold border border-gold/30">
+                  {parent.students.length} öğrenci
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLinking(parent)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Link student"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(parent)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(parent)}
+                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {parent.students.length === 0 ? (
@@ -72,13 +130,12 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
                       </p>
                       <p className="text-[11px] text-muted-foreground">{student.instrument ?? 'Branş belirtilmemiş'}</p>
                     </div>
-                    <span
-                      className={cn(
-                        'text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground'
-                      )}
+                    <a
+                      href={`/dashboard/students/${student.id}`}
+                      className="text-[11px] text-gold hover:underline underline-offset-4"
                     >
-                      eşleşmiş
-                    </span>
+                      View
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -89,15 +146,37 @@ export function ParentsTable({ parents }: { parents: ParentRow[] }) {
 
       {parents.length === 0 && (
         <div className="rounded-2xl border border-border bg-card py-16 text-center text-sm text-muted-foreground">
-          Henüz veli eklenmemiş. Yeni veli ekleyip öğrencilerle eşleştirin.
+          Henüz veli yok. Öğrenci kaydı sırasında veli ekleyin veya buradan eşleştirin.
         </div>
       )}
 
-      {modalOpen && (
+      {createOpen && (
         <ParentFormModal
-          onClose={() => setModalOpen(false)}
+          onClose={() => setCreateOpen(false)}
           onSuccess={() => {
-            setModalOpen(false)
+            setCreateOpen(false)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {editing && (
+        <ParentEditModal
+          parent={editing}
+          onClose={() => setEditing(null)}
+          onSuccess={() => {
+            setEditing(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {linking && (
+        <ParentLinkModal
+          parent={linking}
+          onClose={() => setLinking(null)}
+          onSuccess={() => {
+            setLinking(null)
             router.refresh()
           }}
         />

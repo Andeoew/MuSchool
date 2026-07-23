@@ -13,6 +13,19 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const student = await db.student.findUnique({
     where: { id },
     include: {
+      parents: {
+        include: {
+          parent: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      },
       lessons: {
         orderBy: { startTime: 'desc' },
         take: 10,
@@ -46,6 +59,25 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <InfoCard label="Level" value={student.level ?? '—'} />
         <InfoCard label="Phone" value={student.phone ?? '—'} />
         <InfoCard label="Status" value={student.isActive ? 'Active' : 'Inactive'} />
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-3">Parents / Guardians</h3>
+        {student.parents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No parent linked yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {student.parents.map((link) => (
+              <li key={link.id} className="text-sm text-foreground flex justify-between gap-3">
+                <span>
+                  {link.parent.firstName} {link.parent.lastName}
+                  {link.relationship ? ` · ${link.relationship}` : ''}
+                </span>
+                <span className="text-muted-foreground">{link.parent.email}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5">

@@ -45,14 +45,15 @@ model Academy {
 // the whole platform, so this must NOT be scoped to academyId.
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  emailVerified Boolean  @default(false)
-  image         String?
-  role          Role     @default(ADMIN)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  emailVerified      Boolean  @default(false)
+  image              String?
+  role               Role     @default(ADMIN)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
@@ -60,9 +61,10 @@ model User {
   sessions      Session[]
   accounts      Account[]
   teacher       Teacher?
+  parent        Parent?
   announcements Announcement[]
 
-  // Enables composite FK references from Teacher.user and Announcement.author
+  // Enables composite FK references from Teacher.user / Parent.user and Announcement.author
   @@unique([academyId, id])
   @@index([academyId])
 }
@@ -171,6 +173,7 @@ model Teacher {
 
 model Parent {
   id        String   @id @default(cuid())
+  userId    String?  @unique
   firstName String
   lastName  String
   email     String
@@ -181,10 +184,13 @@ model Parent {
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
 
+  // Composite FK: guarantees the linked User belongs to the SAME academy.
+  user     User?           @relation(fields: [academyId, userId], references: [academyId, id], onDelete: SetNull)
   students ParentStudent[]
 
   @@unique([academyId, email])
   @@unique([academyId, id])
+  @@unique([academyId, userId])
   @@index([academyId])
 }
 
@@ -193,10 +199,11 @@ model Parent {
 // completely unscoped — any parent could theoretically be linked to any
 // student across academies. This closes that gap.
 model ParentStudent {
-  id        String   @id @default(cuid())
-  parentId  String
-  studentId String
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  parentId     String
+  studentId    String
+  relationship String?
+  createdAt    DateTime @default(now())
 
   academyId String
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
@@ -205,6 +212,7 @@ model ParentStudent {
   student Student @relation(fields: [academyId, studentId], references: [academyId, id])
 
   @@unique([parentId, studentId])
+  @@unique([academyId, id])
   @@index([academyId])
 }
 

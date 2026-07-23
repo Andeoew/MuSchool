@@ -1,24 +1,6 @@
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth'
-
-/**
- * ASSUMPTION — please verify against your real lib/auth.ts:
- * This assumes your Better Auth config exposes `academyId` on
- * session.user via a custom field, e.g.:
- *
- *   export const auth = betterAuth({
- *     // ...
- *     user: {
- *       additionalFields: {
- *         academyId: { type: 'string', required: true },
- *         role: { type: 'string', required: true },
- *       },
- *     },
- *   })
- *
- * If academyId isn't on the session yet, add it there (or fetch the User
- * row by session.user.id here) before using requireAcademyId() anywhere.
- */
+import { isAdminRole } from '@/lib/auth-utils'
 
 export async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -37,4 +19,13 @@ export async function requireAcademyId(): Promise<{ academyId: string; userId: s
   }
 
   return { academyId, userId: session.user.id }
+}
+
+export async function requireAdminSession() {
+  const session = await requireSession()
+  const role = (session.user as { role?: string }).role
+  if (!isAdminRole(role ?? '')) {
+    throw new Error('FORBIDDEN')
+  }
+  return session
 }

@@ -48,7 +48,8 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
       lastName: formData.get('lastName'),
       email: formData.get('email'),
       phone: formData.get('phone'),
-      tempPassword: formData.get('tempPassword'),
+      tempPassword: formData.get('tempPassword') || undefined,
+      createLoginAccount: formData.get('createLoginAccount') === 'on',
       studentIds: selectedIds,
     }
 
@@ -82,15 +83,18 @@ export function ParentFormModal({ onClose, onSuccess }: Props) {
           </div>
           <Field label="E-posta" name="email" type="email" error={fieldErrors.email} required />
           <Field label="Telefon" name="phone" error={fieldErrors.phone} />
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" name="createLoginAccount" defaultChecked className="rounded border-border" />
+            Create login account for this parent
+          </label>
           <div className="flex flex-col gap-1">
-            <label className="text-[12px] font-medium text-muted-foreground">Geçici Parola</label>
+            <label className="text-[12px] font-medium text-muted-foreground">Geçici Parola (optional — auto-generated if empty)</label>
             <div className="relative">
               <input
                 name="tempPassword"
                 type={showPassword ? 'text' : 'password'}
-                required
                 minLength={8}
-                placeholder="En az 8 karakter"
+                placeholder="Leave blank to auto-generate"
                 className="h-9 w-full rounded-xl border border-border bg-muted px-3 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/60 transition-all"
               />
               <button

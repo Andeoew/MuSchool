@@ -36,6 +36,12 @@ export const auth = betterAuth({
         // auth.api.signUpEmail() from the academy-registration action.
         input: true,
       },
+      mustChangePassword: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: true,
+      },
     },
   },
 
