@@ -1,0 +1,374 @@
+// MuSchool — Prisma Schema (multi-tenant hardened)
+// Connect a real PostgreSQL database by setting DATABASE_URL in .env
+// then run: pnpm prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Tenant Root ─────────────────────────────────────────────────────────────
+
+model Academy {
+  id                 String    @id @default(cuid())
+  name               String
+  email              String?
+  phone              String?
+  address            String?
+  city               String?
+  logoUrl            String?
+  trialEndsAt        DateTime?
+  plan               String    @default("TRIAL")
+  subscriptionStatus String    @default("TRIAL")
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  users         User[]
+  students      Student[]
+  teachers      Teacher[]
+  parents       Parent[]
+  parentStudent ParentStudent[]
+  lessons       Lesson[]
+  attendances   Attendance[]
+  homeworks     Homework[]
+  assignments   HomeworkAssignment[]
+  payments      Payment[]
+  announcements Announcement[]
+}
+
+// ─── Auth (Better Auth compatible) ──────────────────────────────────────────
+// NOTE: email stays globally unique on User — login happens by email across
+// the whole platform, so this must NOT be scoped to academyId.
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          Role     @default(ADMIN)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  sessions      Session[]
+  accounts      Account[]
+  teacher       Teacher?
+  announcements Announcement[]
+
+  // Enables composite FK references from Teacher.user and Announcement.author
+  @@unique([academyId, id])
+  @@index([academyId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─── Core Domain ─────────────────────────────────────────────────────────────
+
+model Student {
+  id         String    @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  birthDate  DateTime?
+  avatarUrl  String?
+  level      String?
+  instrument String?
+  isActive   Boolean   @default(true)
+  enrolledAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  parents     ParentStudent[]
+  lessons     Lesson[]
+  attendances Attendance[]
+  homework    HomeworkAssignment[]
+  payments    Payment[]
+
+  // email is unique PER ACADEMY, not globally — two unrelated academies
+  // must be able to each enroll a student with the same email.
+  @@unique([academyId, email])
+  @@unique([academyId, id])
+  @@index([academyId])
+  @@index([academyId, isActive])
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  userId      String?  @unique
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  avatarUrl   String?
+  instruments String[]
+  isActive    Boolean  @default(true)
+  hiredAt     DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  // Composite FK: guarantees the linked User belongs to the SAME academy.
+  user    User?    @relation(fields: [academyId, userId], references: [academyId, id])
+  lessons Lesson[]
+
+  @@unique([academyId, email])
+  @@unique([academyId, id])
+  @@unique([academyId, userId])
+  @@index([academyId])
+  @@index([academyId, isActive])
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  students ParentStudent[]
+
+  @@unique([academyId, email])
+  @@unique([academyId, id])
+  @@index([academyId])
+}
+
+// Explicit join table replacing the old implicit Parent<->Student m2m.
+// Implicit m2m tables cannot carry academyId, which made that relation
+// completely unscoped — any parent could theoretically be linked to any
+// student across academies. This closes that gap.
+model ParentStudent {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  createdAt DateTime @default(now())
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  parent  Parent  @relation(fields: [academyId, parentId], references: [academyId, id])
+  student Student @relation(fields: [academyId, studentId], references: [academyId, id])
+
+  @@unique([parentId, studentId])
+  @@index([academyId])
+}
+
+model Lesson {
+  id        String       @id @default(cuid())
+  studentId String
+  teacherId String
+  subject   String
+  level     String?
+  startTime DateTime
+  endTime   DateTime
+  status    LessonStatus @default(SCHEDULED)
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  // Composite FKs: a Lesson can now ONLY reference a Student/Teacher
+  // from its own academy — enforced by Postgres, not application code.
+  student    Student     @relation(fields: [academyId, studentId], references: [academyId, id])
+  teacher    Teacher     @relation(fields: [academyId, teacherId], references: [academyId, id])
+  attendance Attendance?
+  homework   Homework[]
+
+  @@unique([academyId, id])
+  @@index([academyId])
+  @@index([academyId, startTime])
+  @@index([academyId, status])
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  lessonId  String
+  studentId String
+  status    AttendanceStatus @default(PRESENT)
+  note      String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  lesson  Lesson  @relation(fields: [academyId, lessonId], references: [academyId, id])
+  student Student @relation(fields: [academyId, studentId], references: [academyId, id])
+
+  // one attendance record per lesson, scoped within the tenant
+  @@unique([academyId, lessonId])
+  @@index([academyId])
+}
+
+model Homework {
+  id          String    @id @default(cuid())
+  lessonId    String
+  title       String
+  description String?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  lesson      Lesson               @relation(fields: [academyId, lessonId], references: [academyId, id])
+  assignments HomeworkAssignment[]
+
+  @@unique([academyId, id])
+  @@index([academyId])
+}
+
+model HomeworkAssignment {
+  id          String         @id @default(cuid())
+  homeworkId  String
+  studentId   String
+  status      HomeworkStatus @default(PENDING)
+  submittedAt DateTime?
+  grade       String?
+  feedback    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  homework Homework @relation(fields: [academyId, homeworkId], references: [academyId, id])
+  student  Student  @relation(fields: [academyId, studentId], references: [academyId, id])
+
+  @@unique([homeworkId, studentId])
+  @@index([academyId])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  studentId   String
+  amount      Float
+  currency    String        @default("TRY")
+  status      PaymentStatus @default(PENDING)
+  description String?
+  paidAt      DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  student Student @relation(fields: [academyId, studentId], references: [academyId, id])
+
+  @@index([academyId])
+  @@index([academyId, status])
+  @@index([academyId, dueDate])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  audience  String   @default("ALL") // ALL | STUDENTS | TEACHERS | PARENTS
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  // optional composite FK — null author stays unconstrained (Postgres MATCH SIMPLE)
+  author User? @relation(fields: [academyId, authorId], references: [academyId, id])
+
+  @@index([academyId])
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  PARENT
+}
+
+enum LessonStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum HomeworkStatus {
+  PENDING
+  SUBMITTED
+  GRADED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}

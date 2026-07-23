@@ -1,0 +1,193 @@
+// lib/i18n/tr.ts — Turkish (default language)
+
+export const tr = {
+  // ── App ──────────────────────────────────────────────────────────────────
+  appName: 'MuSchool',
+  appTagline: 'Müzik okuluları için modern yönetim platformu',
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  auth: {
+    signIn: 'Giriş Yap',
+    signingIn: 'Giriş yapılıyor…',
+    signOut: 'Çıkış Yap',
+    email: 'E-posta adresi',
+    password: 'Şifre',
+    rememberMe: '30 gün boyunca beni hatırla',
+    forgotPassword: 'Şifremi unuttum',
+    noAccount: 'Hesabınız yok mu?',
+    startTrial: 'Ücretsiz denemeye başla',
+    backToSite: 'Siteye geri dön',
+    welcomeBack: 'Tekrar hoş geldiniz',
+    signInToDashboard: 'Akademi panelinize giriş yapın.',
+    emailPlaceholder: 'ornek@akademi.com',
+    passwordPlaceholder: '••••••••',
+    invalidCredentials: 'E-posta veya şifre geçersiz.',
+    fillAllFields: 'Lütfen e-posta ve şifrenizi girin.',
+    quote: '"İlk ayda yönetim süremizi yarıya indirdik. Ders programı ve devam özellikleri tek başına değer."',
+    quoteName: 'Sarah Reynolds',
+    quoteTitle: 'Direktör, Harmony Müzik Akademisi',
+    statAcademies: 'Akademi',
+    statStudents: 'Yönetilen öğrenci',
+    statUptime: 'Çalışma süresi',
+  },
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  nav: {
+    dashboard: 'Pano',
+    students: 'Öğrenciler',
+    teachers: 'Öğretmenler',
+    parents: 'Veliler',
+    calendar: 'Takvim',
+    lessons: 'Dersler',
+    attendance: 'Devam',
+    homework: 'Ödev',
+    payments: 'Ödemeler',
+    reports: 'Raporlar',
+    announcements: 'Duyurular',
+    notifications: 'Bildirimler',
+    settings: 'Ayarlar',
+    collapse: 'Daralt',
+    expand: 'Genişlet',
+  },
+
+  // ── Topnav ────────────────────────────────────────────────────────────────
+  topnav: {
+    search: 'Öğrenci, öğretmen ara…',
+    notifications: 'Bildirimler',
+    markAllRead: 'Tümünü okundu işaretle',
+    newBadge: 'yeni',
+    toggleTheme: 'Temayı değiştir',
+    toggleLanguage: 'Dili değiştir',
+    noNotifications: 'Yeni bildirim yok',
+  },
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  dashboard: {
+    greeting: 'Günaydın',
+    subtitle: (name: string) => `${name} bugün okulda neler oluyor, işte bir bakış.`,
+    today: 'Bugün',
+    totalStudents: 'Toplam Öğrenci',
+    activeTeachers: 'Aktif Öğretmen',
+    monthlyRevenue: 'Aylık Gelir',
+    attendanceRate: 'Devam Oranı',
+    fromLastMonth: 'geçen aya kıyasla',
+    revenue: 'Gelir',
+    revenueSubtitle: 'Aylık gelir hedef karşılaştırması',
+    attendance: 'Devam',
+    attendanceSubtitle: 'Bu haftaki devam özeti',
+    todaysSchedule: 'Bugünün Programı',
+    todaysScheduleSubtitle: 'Günün ders planı',
+    viewCalendar: 'Takvimi görüntüle',
+    quickActions: 'Hızlı İşlemler',
+    addStudent: 'Öğrenci Ekle',
+    addLesson: 'Ders Ekle',
+    addTeacher: 'Öğretmen Ekle',
+    recordPayment: 'Ödeme Kaydet',
+    recentActivity: 'Son Aktiviteler',
+    upcomingLessons: 'Yaklaşan Dersler',
+    upcomingBirthdays: 'Yaklaşan Doğum Günleri',
+    noUpcomingBirthdays: 'Bu ay doğum günü yok.',
+    viewAll: 'Tümünü gör',
+    thisMonth: 'bu ay',
+    vsTarget: 'hedefe karşı',
+  },
+
+  // ── Common ────────────────────────────────────────────────────────────────
+  common: {
+    save: 'Kaydet',
+    cancel: 'İptal',
+    delete: 'Sil',
+    edit: 'Düzenle',
+    add: 'Ekle',
+    search: 'Ara',
+    filter: 'Filtrele',
+    export: 'Dışa Aktar',
+    import: 'İçe Aktar',
+    loading: 'Yükleniyor…',
+    noData: 'Veri bulunamadı.',
+    active: 'Aktif',
+    inactive: 'Pasif',
+    status: 'Durum',
+    actions: 'İşlemler',
+    name: 'Ad Soyad',
+    email: 'E-posta',
+    phone: 'Telefon',
+    date: 'Tarih',
+    amount: 'Tutar',
+    currency: '₺',
+    ongoing: 'Devam ediyor',
+    completed: 'Tamamlandı',
+    upcoming: 'Yaklaşan',
+    scheduled: 'Planlandı',
+    cancelled: 'İptal Edildi',
+    present: 'Mevcut',
+    absent: 'Yok',
+    late: 'Geç',
+    excused: 'Mazeretli',
+    pending: 'Beklemede',
+    paid: 'Ödendi',
+    overdue: 'Gecikmiş',
+  },
+
+  // ── Pages ─────────────────────────────────────────────────────────────────
+  pages: {
+    students: {
+      title: 'Öğrenciler',
+      subtitle: 'Tüm öğrencileri yönetin',
+      addNew: 'Yeni Öğrenci',
+    },
+    teachers: {
+      title: 'Öğretmenler',
+      subtitle: 'Öğretmen kadrosunu yönetin',
+      addNew: 'Yeni Öğretmen',
+    },
+    parents: {
+      title: 'Veliler',
+      subtitle: 'Veli iletişimlerini yönetin',
+      addNew: 'Yeni Veli',
+    },
+    lessons: {
+      title: 'Dersler',
+      subtitle: 'Ders programını yönetin',
+      addNew: 'Yeni Ders',
+    },
+    calendar: {
+      title: 'Takvim',
+      subtitle: 'Ders programı ve etkinlikler',
+    },
+    attendance: {
+      title: 'Devam Takibi',
+      subtitle: 'Öğrenci devam durumlarını takip edin',
+    },
+    homework: {
+      title: 'Ödevler',
+      subtitle: 'Ödev atama ve takibi',
+      addNew: 'Yeni Ödev',
+    },
+    payments: {
+      title: 'Ödemeler',
+      subtitle: 'Ödeme ve fatura yönetimi',
+      addNew: 'Yeni Ödeme',
+    },
+    reports: {
+      title: 'Raporlar',
+      subtitle: 'Akademi analitikleri ve raporlar',
+    },
+    announcements: {
+      title: 'Duyurular',
+      subtitle: 'Öğrenci, öğretmen ve velilere duyuru yapın',
+      addNew: 'Yeni Duyuru',
+    },
+    notifications: {
+      title: 'Bildirimler',
+      subtitle: 'Sistem bildirimleri ve uyarılar',
+      markAllRead: 'Tümünü okundu işaretle',
+    },
+    settings: {
+      title: 'Ayarlar',
+      subtitle: 'Hesap ve sistem tercihlerini yönetin',
+    },
+  },
+} as const
+
+export type Translations = typeof tr
