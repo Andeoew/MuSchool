@@ -178,7 +178,7 @@ export function Pricing() {
 
               {/* CTA */}
               <a
-                href={plan.name === 'Enterprise' ? '#contact' : '#get-started'}
+                href={plan.name === 'Enterprise' ? '#contact' : '/register'}
                 className={cn(
                   'inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 mb-7',
                   plan.highlighted

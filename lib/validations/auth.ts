@@ -1,5 +1,12 @@
 import { z } from 'zod'
 
+export const SignInSchema = z.object({
+  email: z.string().trim().email('Geçerli bir e-posta adresi girin.'),
+  password: z.string().min(1, 'Şifre gerekli.'),
+})
+
+export type SignInInput = z.infer<typeof SignInSchema>
+
 export const RegisterAcademySchema = z.object({
   academyName: z.string().trim().min(2, 'Akademi adı en az 2 karakter olmalı.'),
   ownerName: z.string().trim().min(2, 'Ad soyad en az 2 karakter olmalı.'),

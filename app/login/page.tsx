@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes'
 import { useLocale } from '@/hooks/use-locale'
 import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
+import { SignInSchema } from '@/lib/validations/auth'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -28,14 +29,17 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!email || !password) {
-      setError(t.auth.fillAllFields)
+
+    const parsed = SignInSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? t.auth.fillAllFields)
       return
     }
+
     setLoading(true)
 
     await authClient.signIn.email(
-      { email, password, rememberMe },
+      { email: parsed.data.email, password: parsed.data.password, rememberMe },
       {
         onSuccess: () => {
           setLoading(false)
@@ -43,10 +47,11 @@ export default function LoginPage() {
         },
         onError: (ctx) => {
           setLoading(false)
-          if (ctx.error.status === 403) {
-            setError(t.auth.fillAllFields) // TODO: add a dedicated "verify your email" string
+          const status = ctx.error.status
+          if (status === 401 || status === 403) {
+            setError(t.auth.invalidCredentials)
           } else {
-            setError(ctx.error.message || t.auth.fillAllFields)
+            setError(ctx.error.message || t.auth.invalidCredentials)
           }
         },
       }

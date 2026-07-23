@@ -45,7 +45,7 @@ export function CTA() {
         {/* CTAs */}
         <div className="flex flex-wrap justify-center gap-4">
           <a
-            href="/login"
+            href="/register"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gold text-background font-semibold text-base shadow-gold hover:brightness-110 transition-all duration-200 active:scale-95"
           >
             Start Free Trial

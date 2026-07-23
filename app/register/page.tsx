@@ -8,6 +8,7 @@ import { useLocale } from '@/hooks/use-locale'
 import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
 import { registerAcademy } from '@/app/actions/register-academy'
+import { RegisterAcademySchema } from '@/lib/validations/auth'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -31,29 +32,38 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
-    if (!academyName || !ownerName || !email || !password) {
-      setError('Lütfen tüm alanları doldurun.')
-      return
-    }
-    if (password.length < 8) {
-      setError('Şifre en az 8 karakter olmalı.')
+    const parsed = RegisterAcademySchema.safeParse({
+      academyName,
+      ownerName,
+      email,
+      password,
+    })
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Lütfen tüm alanları doldurun.')
       return
     }
 
     setLoading(true)
     try {
       // 1. Create the Academy + the owner User (server-side, atomic)
-      await registerAcademy({ academyName, ownerName, email, password })
+      const result = await registerAcademy(parsed.data)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
 
       // 2. Log the new owner in immediately
       await authClient.signIn.email(
-        { email, password },
+        { email: parsed.data.email, password: parsed.data.password },
         {
           onSuccess: () => {
             router.push('/dashboard')
           },
           onError: (ctx) => {
-            setError(ctx.error.message || 'Kayıt oluştu ama giriş başarısız oldu, lütfen giriş sayfasından dene.')
+            setError(
+              ctx.error.message ||
+                'Kayıt oluştu ama giriş başarısız oldu, lütfen giriş sayfasından dene.'
+            )
           },
         }
       )

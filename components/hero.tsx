@@ -179,7 +179,7 @@ export function Hero() {
             {/* CTAs */}
             <div className="flex flex-wrap gap-3 pt-2">
               <a
-                href="/login"
+                href="/register"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold text-background font-semibold text-sm shadow-gold hover:brightness-110 transition-all duration-200 active:scale-95"
               >
                 Start Free Trial
