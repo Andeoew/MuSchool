@@ -31,15 +31,23 @@ export function UserSection({ collapsed, onSignOut, className }: UserSectionProp
   const initials = user?.name ? getInitials(user.name) : '??'
 
   async function handleSignOut() {
-    await signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          onSignOut?.()
-          router.push('/')
-          router.refresh()
+    try {
+      await signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            onSignOut?.()
+          },
+          onError: () => {
+            // Still leave the dashboard — session may already be cleared client-side.
+            onSignOut?.()
+          },
         },
-      },
-    })
+      })
+    } finally {
+      // Always leave protected UI and refresh so the landing navbar re-fetches session.
+      router.push('/')
+      router.refresh()
+    }
   }
 
   return (

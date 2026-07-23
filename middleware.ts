@@ -22,13 +22,20 @@ export async function middleware(request: NextRequest) {
   let role: string | undefined
 
   if (sessionCookie && process.env.BETTER_AUTH_SECRET) {
-    const session = await getCookieCache(request, {
-      secret: process.env.BETTER_AUTH_SECRET,
-    })
-    role = session?.user?.role as string | undefined
+    try {
+      const isSecure = request.nextUrl.protocol === 'https:'
+      const session = await getCookieCache(request, {
+        secret: process.env.BETTER_AUTH_SECRET,
+        isSecure,
+      })
+      role = (session?.user as { role?: string } | undefined)?.role
+    } catch {
+      // Cookie cache is optimistic — never block navigation if decrypt fails.
+      role = undefined
+    }
   }
 
-  const dashboardPath = role ? getDashboardPathForRole(role) : '/admin/dashboard'
+  const dashboardPath = role ? getDashboardPathForRole(role) : '/dashboard'
 
   if (isProtected && !sessionCookie) {
     const loginUrl = new URL('/login', request.url)
@@ -40,15 +47,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  if (sessionCookie && isAdminPath(pathname) && role && !isAdminRole(role)) {
+  // Only enforce role gates when role is known from cookie cache.
+  // Missing role falls through; server layouts/actions remain authoritative.
+  if (sessionCookie && role && isAdminPath(pathname) && !isAdminRole(role)) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  if (sessionCookie && pathname.startsWith('/teacher') && role !== 'TEACHER' && !isAdminRole(role ?? '')) {
+  if (
+    sessionCookie &&
+    role &&
+    pathname.startsWith('/teacher') &&
+    role !== 'TEACHER' &&
+    !isAdminRole(role)
+  ) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 
-  if (sessionCookie && pathname.startsWith('/student') && role !== 'PARENT' && role !== 'STUDENT' && !isAdminRole(role ?? '')) {
+  if (
+    sessionCookie &&
+    role &&
+    pathname.startsWith('/student') &&
+    role !== 'PARENT' &&
+    role !== 'STUDENT' &&
+    !isAdminRole(role)
+  ) {
     return NextResponse.redirect(new URL(dashboardPath, request.url))
   }
 

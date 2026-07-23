@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Music2, Eye, EyeOff, ArrowRight, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useLocale } from '@/hooks/use-locale'
 import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
 import { SignInSchema } from '@/lib/validations/auth'
+import { resolvePostAuthRedirect } from '@/lib/auth-utils'
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { theme, setTheme } = useTheme()
   const { t, locale, toggle } = useLocale()
   const [mounted, setMounted] = useState(false)
@@ -38,24 +40,34 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    await authClient.signIn.email(
-      { email: parsed.data.email, password: parsed.data.password, rememberMe },
-      {
-        onSuccess: () => {
-          setLoading(false)
-          router.push('/dashboard')
-        },
-        onError: (ctx) => {
-          setLoading(false)
-          const status = ctx.error.status
-          if (status === 401 || status === 403) {
-            setError(t.auth.invalidCredentials)
-          } else {
-            setError(ctx.error.message || t.auth.invalidCredentials)
-          }
-        },
+    try {
+      const result = await authClient.signIn.email({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        rememberMe,
+      })
+
+      if (result.error) {
+        const status = result.error.status
+        if (status === 401 || status === 403) {
+          setError(t.auth.invalidCredentials)
+        } else {
+          setError(result.error.message || t.auth.invalidCredentials)
+        }
+        return
       }
-    )
+
+      const role =
+        (result.data as { user?: { role?: string } } | undefined)?.user?.role ??
+        (await authClient.getSession()).data?.user?.role
+
+      router.push(resolvePostAuthRedirect(role, searchParams.get('callbackUrl')))
+      router.refresh()
+    } catch {
+      setError(t.auth.invalidCredentials)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const stats = [
@@ -310,5 +322,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="h-9 w-40 rounded-xl bg-muted animate-pulse" />
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   )
 }

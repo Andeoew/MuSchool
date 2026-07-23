@@ -10,12 +10,30 @@ export function getDashboardPathForRole(role: string): string {
     case 'SUPER_ADMIN':
     case 'ADMIN':
     default:
-      return '/admin/dashboard'
+      // Admin shell lives at /dashboard; /admin/dashboard redirects there.
+      return '/dashboard'
   }
 }
 
 export function isAdminRole(role: string): boolean {
   return role === 'ADMIN' || role === 'SUPER_ADMIN'
+}
+
+/** Safe post-login redirect: honor relative callbackUrl, else role dashboard. */
+export function resolvePostAuthRedirect(
+  role: string | undefined | null,
+  callbackUrl?: string | null,
+): string {
+  if (
+    callbackUrl &&
+    callbackUrl.startsWith('/') &&
+    !callbackUrl.startsWith('//') &&
+    !callbackUrl.startsWith('/login') &&
+    !callbackUrl.startsWith('/register')
+  ) {
+    return callbackUrl
+  }
+  return getDashboardPathForRole(role ?? 'ADMIN')
 }
 
 export const INSTRUMENT_OPTIONS = [

@@ -19,6 +19,15 @@ export const auth = betterAuth({
     minPasswordLength: 8,
   },
 
+  // Enables better-auth.session_data cookie so middleware can read role
+  // via getCookieCache() without a DB round-trip on every navigation.
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes
+    },
+  },
+
   // academyId and role live on User in our schema but are NOT part of
   // Better Auth's built-in fields, so we declare them here.
   user: {

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
 import { registerAcademy } from '@/app/actions/register-academy'
 import { RegisterAcademySchema } from '@/lib/validations/auth'
+import { resolvePostAuthRedirect } from '@/lib/auth-utils'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -52,21 +53,24 @@ export default function RegisterPage() {
         return
       }
 
-      // 2. Log the new owner in immediately
-      await authClient.signIn.email(
-        { email: parsed.data.email, password: parsed.data.password },
-        {
-          onSuccess: () => {
-            router.push('/dashboard')
-          },
-          onError: (ctx) => {
-            setError(
-              ctx.error.message ||
-                'Kayıt oluştu ama giriş başarısız oldu, lütfen giriş sayfasından dene.'
-            )
-          },
-        }
-      )
+      // 2. Log the new owner in immediately (academy owners are ADMIN)
+      const signInResult = await authClient.signIn.email({
+        email: parsed.data.email,
+        password: parsed.data.password,
+      })
+
+      if (signInResult.error) {
+        setError(
+          signInResult.error.message ||
+            'Kayıt oluştu ama giriş başarısız oldu, lütfen giriş sayfasından dene.',
+        )
+        return
+      }
+
+      const role =
+        (signInResult.data as { user?: { role?: string } } | undefined)?.user?.role ?? 'ADMIN'
+      router.push(resolvePostAuthRedirect(role))
+      router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kayıt sırasında bir hata oluştu.')
     } finally {

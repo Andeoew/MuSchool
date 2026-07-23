@@ -10,15 +10,24 @@ export async function requireSession() {
   return session
 }
 
-export async function requireAcademyId(): Promise<{ academyId: string; userId: string }> {
+export async function requireAcademyId(): Promise<{
+  academyId: string
+  userId: string
+  role: string
+}> {
   const session = await requireSession()
-  const academyId = (session.user as { academyId?: string }).academyId
+  const user = session.user as { academyId?: string; role?: string }
+  const academyId = user.academyId
 
   if (!academyId) {
     throw new Error('Session user has no academyId — check your Better Auth additionalFields config')
   }
 
-  return { academyId, userId: session.user.id }
+  return {
+    academyId,
+    userId: session.user.id,
+    role: user.role ?? 'ADMIN',
+  }
 }
 
 export async function requireAdminSession() {
